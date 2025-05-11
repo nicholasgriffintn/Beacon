@@ -7,6 +7,30 @@ The idea being to have a fully open source, yet easily managed service that does
 > [!NOTE]
 > Please note that this project is still in active development so there are a few features that are not yet fully working or fully imagined.
 
+## Set up on Cloudflare
+
+If you'd like to run this for yourself, you can do so by following the steps below.
+
+First you'll need to create a R2 bucket with the name `analytics-pipeline`.
+
+```bash
+npx wrangler@latest r2 bucket create analytics-pipeline
+```
+
+Then you'll need to create the pipeline with this bucket as the source.
+
+```bash
+npx wrangler@latest pipelines create analytics-pipeline --r2-bucket analytics-pipeline
+```
+
+You'll also need to create a [D1 database](https://developers.cloudflare.com/d1/getting-started/create-a-database/) with the name `analytics-pipeline`.
+
+```bash
+npx wrangler@latest d1 create analytics-database
+```
+
+Finally, you can click the button below to deploy the worker.
+
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/nicholasgriffintn/cloudflare-analytics-pipeline)
 
 ## Installation
@@ -14,12 +38,12 @@ The idea being to have a fully open source, yet easily managed service that does
 Include the script in your HTML:
 
 ```html
-<script src="https://beacon.nickgriffin.uk/beacon.js"></script>
+<script src="https://<your-worker-url>/beacon.js"></script>
 ```
 
 ## Configuration Options
 
-- **endpoint**: API endpoint URL (default: https://beacon.nickgriffin.uk)
+- **endpoint**: API endpoint URL
 - **siteId**: Your site's unique identifier (required)
 - **debug**: Enable console logging (default: false)
 - **trackPageViews**: Automatically track page views (default: true)
@@ -66,13 +90,13 @@ Beacon includes an experiments module for A/B testing and feature flagging.
 // Initialize Beacon first
 Beacon.init({
   siteId: 'YOUR_SITE_ID',
-  endpoint: 'https://beacon.nickgriffin.uk',
+  endpoint: 'https://<your-worker-url>',
   debug: true
 });
 
 // Initialize the experiments module
 BeaconExperiments.init({
-  endpoint: 'https://beacon.nickgriffin.uk',
+  endpoint: 'https://<your-worker-url>',
   debug: true
 });
 ```
@@ -158,12 +182,12 @@ The following helper functions are available when debug mode is enabled:
 // Initialize both modules
 Beacon.init({
   siteId: 'YOUR_SITE_ID',
-  endpoint: 'https://beacon.nickgriffin.uk',
+  endpoint: 'https://<your-worker-url>',
   debug: true
 });
 
 BeaconExperiments.init({
-  endpoint: 'https://beacon.nickgriffin.uk',
+  endpoint: 'https://<your-worker-url>',
   debug: true
 });
 
