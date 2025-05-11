@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+    container_name: beacon-dashboard-frontend
     ports:
       - "8080:8080"
     volumes:
@@ -17,9 +18,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.backend
+    container_name: beacon-dashboard-backend
     ports:
       - "8081:8081"
     volumes:
       - ./backend:/app
     environment:
       - PORT=8080
+      
+  jupyter:
+    image: jupyter/all-spark-notebook:latest
+    container_name: beacon-dashboard-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/home/jovyan/work
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - WAREHOUSE=${WAREHOUSE}
+      - TOKEN=${TOKEN}
+      - CATALOG_URI=${CATALOG_URI}
+    command: start-notebook.sh --NotebookApp.token=''

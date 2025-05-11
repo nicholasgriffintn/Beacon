@@ -35,18 +35,19 @@ pnpm run dev
 
 ## Running the Dashboard
 
-The Beacon Dashboard is composed of a Python FastAPI backend and a React frontend. You can run both services using podman-compose:
+The Beacon Dashboard is composed of a Python FastAPI backend, and a React frontend. You can run both services using podman-compose:
 
 ```bash
 # Navigate to the dashboard directory
 cd dashboard
 
-# Build and start the services
-podman-compose up --build
+# Start the services
+podman-compose up
 
 # Access the application:
 # - Dashboard: http://localhost:8080
 # - Dashboard API: http://localhost:8081/api/hello
+# - Jupyter: http://localhost:8888
 ```
 
 ## Set up on Cloudflare
