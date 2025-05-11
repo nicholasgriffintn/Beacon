@@ -7,6 +7,17 @@ The idea being to have a fully open source, yet easily managed service that does
 > [!NOTE]
 > Please note that this project is still in active development so there are a few features that are not yet fully working or fully imagined.
 
+## TODO
+
+- [ ] Create a sites database and validate site IDs against that and valid URLs
+- [ ] Create a Python backend for managing sites, analytics, experiments and variants
+- [ ] Should have the ability to link experiments to metrics being sent via analytics but also custom metrics
+- [ ] Create a backend service for getting the iceberg data and displaying it (Apache Superset?)
+- [ ] Create a scheduled service that gets the results of the experiments and stores them in R2 (Apache Spark?)
+- [ ] Expand on the feature flagging capability
+- [ ] Instead of loading sites and experiments over an API, we should programatically store them statically and then load them from clients via a CDN JSON file
+- [ ] Rewrite this todo list with the next set of tasks
+
 ## Set up on Cloudflare
 
 If you'd like to run this for yourself, you can do so by following the steps below.
