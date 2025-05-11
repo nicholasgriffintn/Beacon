@@ -18,6 +18,37 @@ The idea being to have a fully open source, yet easily managed service that does
 - [ ] Instead of loading sites and experiments over an API, we should programatically store them statically and then load them from clients via a CDN JSON file
 - [ ] Rewrite this todo list with the next set of tasks
 
+## Running the Collector
+
+The collector is the main part of this service that runs on Cloudflare Workers. It is responsible for collecting events from the website and sending them to the Cloudflare Pipelines service.
+
+```bash
+# Install the dependencies
+pnpm install
+
+# Run the worker
+pnpm run dev
+
+# Access the worker:
+# - Worker URL: http://localhost:5173/beacon.js
+```
+
+## Running the Dashboard
+
+The Beacon Dashboard is composed of a Python FastAPI backend and a React frontend. You can run both services using podman-compose:
+
+```bash
+# Navigate to the dashboard directory
+cd dashboard
+
+# Build and start the services
+podman-compose up --build
+
+# Access the application:
+# - Dashboard: http://localhost:8080
+# - Dashboard API: http://localhost:8081/api/hello
+```
+
 ## Set up on Cloudflare
 
 If you'd like to run this for yourself, you can do so by following the steps below.
@@ -44,7 +75,7 @@ Finally, you can click the button below to deploy the worker.
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/nicholasgriffintn/cloudflare-analytics-pipeline)
 
-## Installation
+## Installation for a website
 
 Include the script in your HTML:
 

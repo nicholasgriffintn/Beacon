@@ -3,7 +3,7 @@
 	"name": "analytics-pipeline",
   "compatibility_flags": ["nodejs_compat"],
 	"compatibility_date": "2025-04-01",
-	"main": "api/index.ts",
+	"main": "collector/index.ts",
 	"observability": {
 		"enabled": true,
     "head_sampling_rate": 1,
