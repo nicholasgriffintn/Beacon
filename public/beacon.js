@@ -260,10 +260,16 @@
           const originalPushState = window.history.pushState;
           window.history.pushState = function(...args) {
             originalPushState.apply(this, args);
-            trackPageView();
+            trackPageView(
+              {
+                virtualPageview: true
+              }
+            );
           };
           
-          window.addEventListener('popstate', trackPageView);
+          window.addEventListener('popstate', trackPageView({
+            virtualPageview: true
+          }));
         }
       }
       
