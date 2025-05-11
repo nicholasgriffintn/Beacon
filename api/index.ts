@@ -1,4 +1,5 @@
 import { Hono, type Context } from "hono";
+import { cors } from "hono/cors";
 
 interface Env {
   ASSETS: {
@@ -10,6 +11,24 @@ interface Env {
 }
 
 const app = new Hono<{ Bindings: Env }>();
+
+const origin = () => {
+  return "*";
+};
+
+app.use(
+  "*",
+  cors({
+    origin,
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+    ],
+    credentials: true,
+    maxAge: 86400,
+  }),
+);
 
 function getMidnightDate(): Date {
   const midnight = new Date();
@@ -330,18 +349,6 @@ app.post("/batch", async (c: Context) => {
   }, 200);
 });
 
-app.options("/batch", (c) => {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
-});
-
 app.post("/event", async (c: Context) => {
   // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   let eventData: any;
@@ -376,18 +383,6 @@ app.post("/event", async (c: Context) => {
   await c.env.ANALYTICS_PIPELINE.send([fullEventData]);
 
   return c.json({ success: true }, 200);
-});
-
-app.options("/event", (c) => {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Max-Age": "86400",
-    },
-  });
 });
 
 app.all("*", async (c) => {
