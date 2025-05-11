@@ -258,7 +258,6 @@ function collectCommonAnalyticsData(c: Context, queryParams: Record<string, stri
 }
 
 app.post("/batch", async (c: Context) => {
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   let batchData: any;
   try {
     batchData = await c.req.json();
@@ -274,7 +273,6 @@ app.post("/batch", async (c: Context) => {
   const ip = c.req.raw.headers.get("CF-Connecting-IP") || "unknown";
   const { browser, os, device } = extractDeviceInfo(userAgent);
 
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   const processedEvents = batchData.events.map((event: any) => {
     const commonParams = batchData.commonParams || {};
 
@@ -311,6 +309,7 @@ app.post("/batch", async (c: Context) => {
           title: event.title || commonParams.title || '',
           language: event.language || commonParams.lng || '',
         },
+        properties: event.properties || {},
         data_type: 'pageview',
       };
     }
@@ -350,7 +349,6 @@ app.post("/batch", async (c: Context) => {
 });
 
 app.post("/event", async (c: Context) => {
-  // biome-ignore lint/suspicious/noExplicitAny: <explanation>
   let eventData: any;
   try {
     eventData = await c.req.json();

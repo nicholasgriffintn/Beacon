@@ -15,7 +15,8 @@
     trackUserTimings: false,
     sessionTimeout: 30 * 60 * 1000, // 30 minutes
     batchSize: 10,
-    batchTimeout: 5000 // 5 seconds
+    batchTimeout: 5000, // 5 seconds
+    directPageViews: true
   };
 
   // Stored events waiting to be sent
@@ -129,23 +130,24 @@
   };
 
   // Track a pageview
-  const trackPageView = () => {
+  const trackPageView = ({
+    contentType = 'page',
+    virtualPageview = false,
+    properties = {}
+  }) => {
     const params = {
       ...getCommonParams(),
-      event_type: 'pageview',
+      type: 'pageview',
+      path: window.location.pathname,
       title: document.title,
-      url: window.location.href
+      contentType: contentType,
+      virtualPageview: virtualPageview,
+      properties: properties
     };
     
     // Send directly for pageviews
     if (Beacon.config.directPageViews) {
-      const endpoint = `${Beacon.config.endpoint}/collect/pageview`;
-      const queryString = Object.entries(params)
-        .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
-        .join('&');
-      
-      const img = new Image();
-      img.src = `${endpoint}?${queryString}`;
+      sendEvents([params]);
     } else {
       // Add to queue
       eventQueue.push(params);
@@ -154,14 +156,23 @@
   };
 
   // Track a custom event
-  const trackEvent = (category, action, label = '', value = '') => {
+  const trackEvent = ({
+    name,
+    category,
+    label = '',
+    value = 0,
+    nonInteraction = false,
+    properties = {}
+  }) => {
     const params = {
       ...getCommonParams(),
-      event_type: 'event',
-      category,
-      action,
-      label,
-      value
+      type: 'event',
+      eventName: name,
+      eventCategory: category,
+      eventLabel: label,
+      eventValue: value,
+      nonInteraction: nonInteraction,
+      properties: properties
     };
     
     eventQueue.push(params);
@@ -224,8 +235,8 @@
         // Track page changes for SPAs
         if (window.history?.pushState) {
           const originalPushState = window.history.pushState;
-          window.history.pushState = function() {
-            originalPushState.apply(this, arguments);
+          window.history.pushState = function(...args) {
+            originalPushState.apply(this, args);
             trackPageView();
           };
           
