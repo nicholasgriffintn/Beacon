@@ -322,14 +322,17 @@ app.post("/batch", async (c: Context) => {
 
   return c.json(
     {
-    success: true,
-    processed: processedEvents.length
+      success: true,
+      processed: processedEvents.length
     },
     200,
     {
       "Access-Control-Allow-Origin": "*",
       "Content-Type": "application/json",
       "Last-Modified": nextLastModifiedDate?.toUTCString() || "",
+      Expires: "Mon, 01 Jan 1990 00:00:00 GMT",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
     }
   );
 });
