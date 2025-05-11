@@ -269,33 +269,11 @@ app.post("/batch", async (c: Context) => {
     return c.json({ error: "Missing required fields: siteId and events" }, 400);
   }
 
-  const { userAgent } = c.req.header();
-  const ip = c.req.raw.headers.get("CF-Connecting-IP") || "unknown";
-  const { browser, os, device } = extractDeviceInfo(userAgent);
+  const commonParams = batchData.commonParams || {};
+
+  const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, commonParams, false);
 
   const processedEvents = batchData.events.map((event: any) => {
-    const commonParams = batchData.commonParams || {};
-
-    const analyticsData = {
-      timestamp: new Date().toISOString(),
-      session_data: {
-        site_id: batchData.siteId,
-        user_id: batchData.userId || commonParams.user_id || `user${Math.floor(Math.random() * 1000)}`,
-        session_id: batchData.sessionId || commonParams.session_id,
-        client_timestamp: batchData.timestamp || Date.now().toString(),
-      },
-      device_info: {
-        browser,
-        os,
-        device,
-        userAgent,
-        screen: parseScreenDimensions(commonParams.r || ''),
-        viewport: parseScreenDimensions(commonParams.re || ''),
-      },
-      referrer: commonParams.ref || "NA",
-      ip,
-    };
-
     if (event.type === 'pageview') {
       return {
         ...analyticsData,
@@ -342,10 +320,18 @@ app.post("/batch", async (c: Context) => {
 
   await c.env.ANALYTICS_PIPELINE.send(processedEvents);
 
-  return c.json({
+  return c.json(
+    {
     success: true,
     processed: processedEvents.length
-  }, 200);
+    },
+    200,
+    {
+      "Access-Control-Allow-Origin": "*",
+      "Content-Type": "application/json",
+      "Last-Modified": nextLastModifiedDate?.toUTCString() || "",
+    }
+  );
 });
 
 app.post("/event", async (c: Context) => {
@@ -363,7 +349,7 @@ app.post("/event", async (c: Context) => {
   const queryParams = eventData.queryParams || {};
   queryParams.s = eventData.siteId;
 
-  const { analyticsData } = collectCommonAnalyticsData(c, queryParams, false);
+  const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, queryParams, false);
 
   const fullEventData = {
     ...analyticsData,
@@ -380,13 +366,24 @@ app.post("/event", async (c: Context) => {
 
   await c.env.ANALYTICS_PIPELINE.send([fullEventData]);
 
-  return c.json({ success: true }, 200);
+  return c.json(
+    { success: true },
+    200,
+    {
+      "Access-Control-Allow-Origin": "*",
+      "Content-Type": "application/json",
+      "Last-Modified": nextLastModifiedDate?.toUTCString() || "",
+      Expires: "Mon, 01 Jan 1990 00:00:00 GMT",
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    }
+  );
 });
 
 app.all("*", async (c) => {
   return c.env.ASSETS.fetch(c.req.raw);
 });
 
-export default {
-  fetch: app.fetch,
-};
+  export default {
+    fetch: app.fetch,
+  };
