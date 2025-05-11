@@ -13,10 +13,75 @@
     trackPageViews: true,
     trackClicks: false,
     trackUserTimings: false,
-    sessionTimeout: 30 * 60 * 1000, // 30 minutes
     batchSize: 10,
     batchTimeout: 5000, // 5 seconds
-    directPageViews: true
+    directPageViews: true,
+    requireConsent: false,
+    respectDoNotTrack: true,
+    consentCookie: 'beacon_consent',
+  };
+
+  const hasConsent = () => {
+    try {
+      const cookieConsent = getCookie(Beacon.config.consentCookie);
+      if (cookieConsent === 'true') {
+        return true;
+      }
+      
+      const storageConsent = localStorage.getItem(Beacon.config.consentCookie);
+      return storageConsent === 'true';
+    } catch (e) {
+      return false;
+    }
+  };
+
+  const setCookie = (name, value, days) => {
+    const expires = new Date();
+    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
+    document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=Lax`;
+  };
+
+  const getCookie = (name) => {
+    const nameEQ = `${name}=`;
+    const ca = document.cookie.split(';');
+    for (let i = 0; i < ca.length; i++) {
+      let c = ca[i];
+      while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+      if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+    }
+    return null;
+  };
+
+  const setConsent = (consent) => {
+    try {
+      setCookie(Beacon.config.consentCookie, consent.toString(), 365);
+      
+      localStorage.setItem(Beacon.config.consentCookie, consent.toString());
+      
+      return true;
+    } catch (e) {
+      if (Beacon.config.debug) {
+        console.error('Beacon: Error setting consent', e);
+      }
+      return false;
+    }
+  };
+
+  const isTrackingAllowed = () => {
+    if (
+      Beacon.config.respectDoNotTrack &&
+      (navigator.doNotTrack === "1" ||
+        navigator.doNotTrack === "yes" ||
+        window.doNotTrack === "1")
+    ) {
+      return false;
+    }
+
+    if (Beacon.config.requireConsent) {
+      return hasConsent();
+    }
+
+    return true;
   };
 
   // Stored events waiting to be sent
@@ -130,6 +195,13 @@
 
   // Track a pageview
   const trackPageView = (params = {}) => {
+    if (!isTrackingAllowed()) {
+      if (Beacon.config.debug) {
+        console.log('Beacon: Tracking blocked by privacy settings or user consent');
+      }
+      return;
+    }
+  
     const {
       contentType = 'page',
       virtualPageview = false,
@@ -158,6 +230,13 @@
 
   // Track a custom event
   const trackEvent = (params = {}) => {
+    if (!isTrackingAllowed()) {
+      if (Beacon.config.debug) {
+        console.log('Beacon: Tracking blocked by privacy settings or user consent');
+      }
+      return;
+    }
+
     const {
       name,
       category,
@@ -267,7 +346,7 @@
             );
           };
           
-          window.addEventListener('popstate', trackPageView({
+          window.addEventListener('popstate', () => trackPageView({
             virtualPageview: true
           }));
         }
@@ -295,7 +374,9 @@
     
     // Public methods
     trackEvent,
-    trackPageView
+    trackPageView,
+    setConsent,
+    hasConsent
   };
   
   // Expose the Beacon object globally
