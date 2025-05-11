@@ -12,6 +12,7 @@
     document.addEventListener('DOMContentLoaded', function() {
       if (window.Beacon) {
         Beacon.init({
+          endpoint: window.location.origin,
           siteId: 'beacon-docs',
           debug: true,
           trackClicks: true,
