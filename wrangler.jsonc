@@ -22,4 +22,11 @@
       "binding": "ANALYTICS_PIPELINE"
     }
   ],
+	"d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "analytics-database",
+      "database_id": "f3f19b02-1c82-4990-a06c-b26b25f582df"
+    }
+  ]
 }

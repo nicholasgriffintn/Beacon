@@ -5,7 +5,6 @@
 // biome-ignore lint/complexity/useArrowFunction: <explanation>
 (function(window) {
 
-  // Configuration defaults
   const defaultConfig = {
     endpoint: 'https://beacon.nickgriffin.uk',
     siteId: '',
@@ -90,12 +89,10 @@
     return true;
   };
 
-  // Stored events waiting to be sent
   const eventQueue = [];
   let batchSendTimeout = null;
-  let sessionUserId = null; // Store user ID in memory for the session
+  let sessionUserId = null;
   
-  // Generate a UUID for identifying users
   const generateId = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
@@ -104,7 +101,6 @@
     });
   };
 
-  // Get or create a session-based user ID
   const getUserId = () => {
     if (!sessionUserId) {
       sessionUserId = generateId();
@@ -112,17 +108,14 @@
     return sessionUserId;
   };
 
-  // Get screen dimensions including offsets
   const getScreenDimensions = () => {
     return `${screen.width}x${screen.height}x${window.screenX}x${window.screenY}`;
   };
 
-  // Get viewport dimensions
   const getViewportDimensions = () => {
     return `${window.innerWidth}x${window.innerHeight}`;
   };
 
-  // Format common parameters for all event types
   const getCommonParams = () => {
     return {
       s: Beacon.config.siteId,
@@ -140,12 +133,11 @@
     };
   };
 
-  // Send events to the server
   const sendEvents = async (events) => {
     if (!events || events.length === 0) return;
     
     try {
-      const endpoint = `${Beacon.config.endpoint}/batch`;
+      const endpoint = `${Beacon.config.endpoint}/api/events/batch`;
       
       const payload = {
         ...getCommonParams(),
@@ -162,7 +154,6 @@
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload),
-        // Use keepalive to ensure the request completes even if the page is unloading
         keepalive: true
       });
       
@@ -180,26 +171,22 @@
     }
   };
 
-  // Process the queue and send events in batches
   const processQueue = (force = false) => {
     if (eventQueue.length >= Beacon.config.batchSize || force) {
       const eventsToSend = eventQueue.splice(0, Beacon.config.batchSize);
       sendEvents(eventsToSend);
     }
     
-    // Clear existing timeout
     if (batchSendTimeout) {
       clearTimeout(batchSendTimeout);
       batchSendTimeout = null;
     }
     
-    // Set a new timeout if there are still events in the queue
     if (eventQueue.length > 0) {
       batchSendTimeout = setTimeout(() => processQueue(true), Beacon.config.batchTimeout);
     }
   };
 
-  // Track a pageview
   const trackPageView = (params = {}) => {
     if (!isTrackingAllowed()) {
       if (Beacon.config.debug) {
@@ -224,17 +211,14 @@
       properties
     };
     
-    // Send directly for pageviews
     if (Beacon.config.directPageViews) {
       sendEvents([eventParams]);
     } else {
-      // Add to queue
       eventQueue.push(eventParams);
       processQueue();
     }
   };
 
-  // Track a custom event
   const trackEvent = (params = {}) => {
     if (!isTrackingAllowed()) {
       if (Beacon.config.debug) {
@@ -267,10 +251,8 @@
     processQueue();
   };
 
-  // Initialize click tracking
   const initClickTracking = () => {
     document.addEventListener('click', (e) => {
-      // Only track links
       const link = e.target.closest('a');
       if (!link) return;
 
@@ -286,7 +268,6 @@
     });
   };
 
-  // Initialize performance tracking
   const initPerformanceTracking = () => {
     if (!window.performance || !window.performance.timing) return;
     
@@ -294,7 +275,6 @@
       setTimeout(() => {
         const timing = window.performance.timing;
         
-        // Calculate key metrics
         const pageLoadTime = timing.loadEventEnd - timing.navigationStart;
         const domLoadTime = timing.domComplete - timing.domLoading;
         const networkLatency = timing.responseEnd - timing.fetchStart;
@@ -321,14 +301,11 @@
     });
   };
   
-  // The main Beacon object
   const Beacon = {
     version: '1.0.0',
     config: { ...defaultConfig },
     
-    // Initialize the tracker
     init: function(customConfig = {}) {
-      // Merge configs
       this.config = { ...this.config, ...customConfig };
       
       if (!this.config.siteId) {
@@ -336,11 +313,9 @@
         return;
       }
       
-      // Set up event listeners
       if (this.config.trackPageViews) {
         trackPageView();
         
-        // Track page changes for SPAs
         if (window.history?.pushState) {
           const originalPushState = window.history.pushState;
           window.history.pushState = function(...args) {
@@ -366,7 +341,6 @@
         initPerformanceTracking();
       }
       
-      // Set up beforeunload handler to send any remaining events
       window.addEventListener('beforeunload', () => {
         processQueue(true);
       });
@@ -378,14 +352,12 @@
       return this;
     },
     
-    // Public methods
     trackEvent,
     trackPageView,
     setConsent,
     hasConsent
   };
   
-  // Expose the Beacon object globally
   window.Beacon = Beacon;
   
 })(window); 
