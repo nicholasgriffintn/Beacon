@@ -148,7 +148,7 @@
       const endpoint = `${Beacon.config.endpoint}/batch`;
       
       const payload = {
-        siteId: Beacon.config.siteId,
+        ...getCommonParams(),
         events: events
       };
       
