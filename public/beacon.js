@@ -130,41 +130,45 @@
   };
 
   // Track a pageview
-  const trackPageView = ({
-    contentType = 'page',
-    virtualPageview = false,
-    properties = {}
-  }) => {
-    const params = {
+  const trackPageView = (params = {}) => {
+    const {
+      contentType = 'page',
+      virtualPageview = false,
+      properties = {}
+    } = params;
+
+    const eventParams = {
       ...getCommonParams(),
       type: 'pageview',
       path: window.location.pathname,
       title: document.title,
-      contentType: contentType,
-      virtualPageview: virtualPageview,
-      properties: properties
+      contentType,
+      virtualPageview,
+      properties
     };
     
     // Send directly for pageviews
     if (Beacon.config.directPageViews) {
-      sendEvents([params]);
+      sendEvents([eventParams]);
     } else {
       // Add to queue
-      eventQueue.push(params);
+      eventQueue.push(eventParams);
       processQueue();
     }
   };
 
   // Track a custom event
-  const trackEvent = ({
-    name,
-    category,
-    label = '',
-    value = 0,
-    nonInteraction = false,
-    properties = {}
-  }) => {
-    const params = {
+  const trackEvent = (params = {}) => {
+    const {
+      name,
+      category,
+      label = '',
+      value = 0,
+      nonInteraction = false,
+      properties = {}
+    } = params;
+
+    const eventParams = {
       ...getCommonParams(),
       type: 'event',
       eventName: name,
@@ -175,7 +179,7 @@
       properties: properties
     };
     
-    eventQueue.push(params);
+    eventQueue.push(eventParams);
     processQueue();
   };
 
@@ -189,7 +193,12 @@
       const href = link.href || '';
       const linkText = link.innerText || link.textContent || 'unknown';
       
-      trackEvent('click', 'link', linkText, href);
+      trackEvent({
+        name: 'click',
+        category: 'link',
+        label: linkText,
+        value: href
+      });
     });
   };
 
@@ -206,9 +215,24 @@
         const domLoadTime = timing.domComplete - timing.domLoading;
         const networkLatency = timing.responseEnd - timing.fetchStart;
         
-        trackEvent('performance', 'page_load', 'total_time', pageLoadTime.toString());
-        trackEvent('performance', 'page_load', 'dom_load', domLoadTime.toString());
-        trackEvent('performance', 'page_load', 'network_latency', networkLatency.toString());
+        trackEvent({
+          name: 'performance',
+          category: 'page_load',
+          label: 'total_time',
+          value: pageLoadTime.toString()
+        });
+        trackEvent({
+          name: 'performance',
+          category: 'page_load',
+          label: 'dom_load',
+          value: domLoadTime.toString()
+        });
+        trackEvent({
+          name: 'performance',
+          category: 'page_load',
+          label: 'network_latency',
+          value: networkLatency.toString()
+        });
       }, 0);
     });
   };
@@ -265,8 +289,8 @@
     },
     
     // Public methods
-    trackEvent: trackEvent,
-    trackPageView: trackPageView
+    trackEvent,
+    trackPageView
   };
   
   // Expose the Beacon object globally
