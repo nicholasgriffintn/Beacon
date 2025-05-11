@@ -1,0 +1,25 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "analytics-pipeline",
+  "compatibility_flags": ["nodejs_compat"],
+	"compatibility_date": "2025-04-01",
+	"main": "api/index.ts",
+	"observability": {
+		"enabled": true,
+    "head_sampling_rate": 1,
+	},
+  "placement": {
+    "mode": "smart",
+  },
+  "upload_source_maps": true,
+	"assets": {
+		"binding": "ASSETS",
+		"not_found_handling": "single-page-application"
+	},
+	"pipelines": [
+    {
+      "pipeline": "analytics-pipeline",
+      "binding": "ANALYTICS_PIPELINE"
+    }
+  ],
+}

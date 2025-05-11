@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cloudflare Analytics Pipeline</title>
+  <script src="beacon.js"></script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <h1>Analytics Pipeline</h1>
+  <p>There's no dashboard for this project just yet.</p>
+  <p>To track events, use the following code:</p>
+
+  <h2>Installation</h2>
+  <p>Include the script in your HTML:</p>
+  <pre><code>&lt;script src="https://beacon.nickgriffin.uk/beacon.js"&gt;&lt;/script&gt;</code></pre>
+
+  <h2>Configuration Options</h2>
+  <ul>
+    <li><strong>endpoint</strong>: API endpoint URL (default: https://beacon.nickgriffin.uk)</li>
+    <li><strong>siteId</strong>: Your site's unique identifier (required)</li>
+    <li><strong>debug</strong>: Enable console logging (default: false)</li>
+    <li><strong>trackPageViews</strong>: Automatically track page views (default: true)</li>
+    <li><strong>trackClicks</strong>: Automatically track link clicks (default: false)</li>
+    <li><strong>trackUserTimings</strong>: Track page performance metrics (default: false)</li>
+    <li><strong>batchSize</strong>: Number of events to send in a batch (default: 10)</li>
+    <li><strong>batchTimeout</strong>: Time in ms before sending partial batch (default: 5000)</li>
+  </ul>
+
+  <pre>
+    <code>
+      &lt;script&gt;
+        // Demo initialization
+        document.addEventListener('DOMContentLoaded', function () {
+          if (window.Beacon) {
+            Beacon.init({
+              siteId: 'demo-site',
+              debug: true
+            });
+          }
+        });
+      &lt;/script&gt;
+    </code>
+  </pre>
+
+  <h2>Usage</h2>
+  <pre><code>// Initialize Beacon with your site ID
+Beacon.init({
+  siteId: 'YOUR_SITE_ID',
+  debug: true, // Set to false in production
+  trackClicks: true, // Optional: automatically track link clicks
+  trackUserTimings: true // Optional: track page performance metrics
+});
+
+// Track custom events
+Beacon.trackEvent('category', 'action', 'label', 'value');
+
+// Manually track a page view (happens automatically with trackPageViews: true)
+Beacon.trackPageView();</code></pre>
+
+</body>
+
+</html>
