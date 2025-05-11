@@ -22,6 +22,7 @@
   // Stored events waiting to be sent
   const eventQueue = [];
   let batchSendTimeout = null;
+  let sessionUserId = null; // Store user ID in memory for the session
   
   // Generate a UUID for identifying users
   const generateId = () => {
@@ -32,14 +33,12 @@
     });
   };
 
-  // Get or create a user ID in local storage
+  // Get or create a session-based user ID
   const getUserId = () => {
-    let userId = localStorage.getItem('beacon_user_id');
-    if (!userId) {
-      userId = generateId();
-      localStorage.setItem('beacon_user_id', userId);
+    if (!sessionUserId) {
+      sessionUserId = generateId();
     }
-    return userId;
+    return sessionUserId;
   };
 
   // Get screen dimensions including offsets
