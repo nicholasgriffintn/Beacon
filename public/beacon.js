@@ -74,10 +74,16 @@
         navigator.doNotTrack === "yes" ||
         window.doNotTrack === "1")
     ) {
+      if (Beacon.config.debug) {
+        console.log('Beacon: Tracking blocked by Do Not Track');
+      }
       return false;
     }
 
     if (Beacon.config.requireConsent) {
+      if (Beacon.config.debug) {
+        console.log('Beacon: Tracking blocked by user consent');
+      }
       return hasConsent();
     }
 
