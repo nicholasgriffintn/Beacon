@@ -79,8 +79,12 @@ BeaconExperiments.init({
 
 ### Defining Experiments
 
+Experiments are to be created and defined in the dashboard (coming soon). These definitions will be loaded by the script.
+
+To extend them with custom logic, you can use the `defineExperimentBehaviors` function.
+
 ```javascript
-BeaconExperiments.defineExperiments([
+BeaconExperiments.defineExperimentBehaviors([
   {
     id: 'experiment_id',
     name: 'Experiment Name',
@@ -164,7 +168,7 @@ BeaconExperiments.init({
 });
 
 // Define a homepage hero test
-BeaconExperiments.defineExperiments([
+BeaconExperiments.defineExperimentBehaviors([
   {
     id: 'home_hero_test',
     name: 'Homepage Hero Variant Test',
