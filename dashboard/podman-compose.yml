@@ -54,3 +54,6 @@ services:
           memory: 12G
         reservations:
           memory: 8G
+
+volumes:
+  duckdb_data:
