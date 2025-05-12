@@ -4,8 +4,17 @@ from typing import Any, Dict, List, Tuple
 import numpy as np
 from scipy import stats
 from scipy.stats import chi2_contingency, mannwhitneyu, ttest_ind
+import statsmodels.stats.power
 
-from ...types import MetricType
+from enum import Enum
+
+class MetricType(str, Enum):
+    """Type of metric."""
+
+    CONTINUOUS = "continuous"
+    BINARY = "binary"
+    COUNT = "count"
+    RATIO = "ratio"
 
 
 @dataclass
@@ -14,6 +23,7 @@ class ExperimentResult:
     control_mean: float
     variant_mean: float
     relative_difference: float
+    absolute_difference: float
     p_value: float
     confidence_interval: Tuple[float, float]
     sample_size: Dict[str, int]
@@ -81,6 +91,7 @@ class StatisticalAnalysisService:
                         ((stats["variant_mean"] - stats["control_mean"]) / stats["control_mean"])
                         * 100
                     ),
+                    absolute_difference=float(stats["variant_mean"] - stats["control_mean"]),
                     p_value=float(stats["p_value"]),
                     confidence_interval=(0.0, 0.0),
                     sample_size={"control": len(control_data), "variant": len(variant_data)},
@@ -91,6 +102,7 @@ class StatisticalAnalysisService:
         control_mean = np.mean(control_data)
         variant_mean = np.mean(variant_data)
         relative_diff = ((variant_mean - control_mean) / control_mean) * 100
+        absolute_diff = variant_mean - control_mean
 
         if metric_type == MetricType.BINARY:
             p_value = self._calculate_binary_significance(control_data, variant_data)
@@ -112,6 +124,7 @@ class StatisticalAnalysisService:
             control_mean=float(control_mean),
             variant_mean=float(variant_mean),
             relative_difference=float(relative_diff),
+            absolute_difference=float(absolute_diff),
             p_value=float(p_value),
             confidence_interval=(float(ci[0]), float(ci[1])),
             sample_size={"control": len(control_data), "variant": len(variant_data)},
@@ -133,7 +146,7 @@ class StatisticalAnalysisService:
             ]
         )
 
-        _, p_value = chi2_contingency(contingency_table)
+        chi2, p_value, dof, expected = chi2_contingency(contingency_table)
         return float(p_value)
 
     def _calculate_binary_confidence_interval(
@@ -179,9 +192,9 @@ class StatisticalAnalysisService:
     def _calculate_power(self, control_data: List[float], variant_data: List[float]) -> float:
         """Calculate statistical power"""
         effect_size = self._cohens_d(control_data, variant_data)
-        power = stats.power.TTestIndPower().power(
+        power = statsmodels.stats.power.TTestIndPower().power(
             effect_size=effect_size,
-            nobs=min(len(control_data), len(variant_data)),
+            nobs1=min(len(control_data), len(variant_data)),
             alpha=self.alpha,
         )
         return float(power)
@@ -208,7 +221,7 @@ class StatisticalAnalysisService:
 
     def estimate_mde(self, baseline_rate: float, sample_size: int, power: float = 0.8) -> float:
         """Estimate minimum detectable effect given a sample size"""
-        analysis = stats.power.TTestIndPower()
+        analysis = statsmodels.stats.power.TTestIndPower()
         effect_size = analysis.solve_effect_size(nobs=sample_size, alpha=self.alpha, power=power)
         return float(effect_size * np.sqrt(baseline_rate * (1 - baseline_rate)))
 
@@ -218,7 +231,7 @@ class StatisticalAnalysisService:
         """Calculate required sample size for desired statistical power"""
         effect_size = minimum_detectable_effect / np.sqrt(baseline_rate * (1 - baseline_rate))
 
-        analysis = stats.power.TTestIndPower()
+        analysis = statsmodels.stats.power.TTestIndPower()
         sample_size = analysis.solve_power(effect_size=effect_size, power=power, alpha=self.alpha)
 
         return int(np.ceil(sample_size))

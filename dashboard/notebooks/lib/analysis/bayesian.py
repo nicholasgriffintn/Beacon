@@ -2,7 +2,15 @@ from typing import Any, Dict, List, Tuple
 
 import numpy as np
 
-from ...types import MetricType
+from enum import Enum
+
+class MetricType(str, Enum):
+    """Type of metric."""
+
+    CONTINUOUS = "continuous"
+    BINARY = "binary"
+    COUNT = "count"
+    RATIO = "ratio"
 
 
 class BayesianAnalysisService:

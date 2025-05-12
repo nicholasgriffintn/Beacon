@@ -1,11 +1,19 @@
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from ...types import MetricType
 from .bayesian import BayesianAnalysisService
 from .correction import MultipleTestingCorrection
 from .frequentist import ExperimentResult, StatisticalAnalysisService
 
+from enum import Enum
+
+class MetricType(str, Enum):
+    """Type of metric."""
+
+    CONTINUOUS = "continuous"
+    BINARY = "binary"
+    COUNT = "count"
+    RATIO = "ratio"
 
 @dataclass
 class CombinedAnalysisResult:
