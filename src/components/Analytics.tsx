@@ -48,6 +48,7 @@ declare global {
     _expBeaconInitialized?: boolean;
     BeaconExperiments?: {
       init: (config: {
+        endpoint: string;
         debug: boolean;
       }) => void;
       defineExperimentBehaviors: (experiments: Experiment[]) => void;
@@ -136,6 +137,7 @@ export function Analytics({
       if (window.BeaconExperiments) {
         window.BeaconExperiments.init({
           debug: beaconDebug,
+          endpoint: beaconEndpoint,
         });
       }
     };

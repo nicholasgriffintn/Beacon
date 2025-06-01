@@ -4,7 +4,8 @@ import type { EventData } from "../types";
 import { collectCommonAnalyticsData } from "../lib";
 
 export async  function handleBatch(c: Context, batchData: EventData) {
-  if (!batchData.siteId || !Array.isArray(batchData.events) || batchData.events.length === 0) {
+  if (!batchData.s || !Array.isArray(batchData.events) || batchData.events.length === 0) {
+    console.error("Invalid batch data", batchData);
     return {
       success: false,
       processed: 0,
@@ -17,6 +18,7 @@ export async  function handleBatch(c: Context, batchData: EventData) {
   const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, commonParams, false);
 
   if (!batchData.events) {
+    console.error("Invalid batch data", batchData);
     return {
       success: false,
       processed: 0,
