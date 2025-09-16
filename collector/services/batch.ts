@@ -4,7 +4,8 @@ import type { EventData } from "../types";
 import { collectCommonAnalyticsData } from "../lib";
 
 export async  function handleBatch(c: Context, batchData: EventData) {
-  if (!batchData.s || !Array.isArray(batchData.events) || batchData.events.length === 0) {
+  const isValidBatchData = !batchData.s || !Array.isArray(batchData.events) || batchData.events.length === 0;
+  if (isValidBatchData) {
     console.error("Invalid batch data", batchData);
     return {
       success: false,

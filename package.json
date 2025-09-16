@@ -12,23 +12,23 @@
 		"db:apply": "wrangler d1 execute analytics-database --file=./database/schema.sql"
 	},
 	"devDependencies": {
-		"@cloudflare/vite-plugin": "^1.0.5",
-		"@cloudflare/workers-types": "^4.20250410.0",
-		"@types/react": "^19.1.0",
-		"@types/react-dom": "^19.1.2",
-		"@vitejs/plugin-react": "^4.3.4",
-		"terser": "^5.39.0",
-		"typescript": "^5.8.3",
-		"vite": "^6.2.6",
-		"wrangler": "^4.10.0"
+		"@cloudflare/vite-plugin": "^1.13.2",
+		"@cloudflare/workers-types": "^4.20250913.0",
+		"@types/react": "^19.1.13",
+		"@types/react-dom": "^19.1.9",
+		"@vitejs/plugin-react": "^5.0.2",
+		"terser": "^5.44.0",
+		"typescript": "^5.9.2",
+		"vite": "^7.1.5",
+		"wrangler": "^4.37.1"
 	},
 	"dependencies": {
-		"hono": "^4.7.6",
-		"react": "^19.1.0",
-		"react-dom": "^19.1.0",
+		"hono": "^4.9.7",
+		"react": "^19.1.1",
+		"react-dom": "^19.1.1",
 		"react-markdown": "^10.1.0",
-		"react-router": "^7.5.0",
-		"react-router-dom": "^7.5.0",
+		"react-router": "^7.9.1",
+		"react-router-dom": "^7.9.1",
 		"remark-gfm": "^4.0.1"
 	}
 }
