@@ -2,6 +2,7 @@ import type { Context } from "hono";
 
 import type { EventData } from "../types";
 import { collectCommonAnalyticsData } from "../lib";
+import { parseExperimentAssignments } from "../utils";
 
 export async  function handleBatch(c: Context, batchData: EventData) {
   const isValidBatchData = batchData.s && Array.isArray(batchData.events) && batchData.events.length > 0;
@@ -27,6 +28,8 @@ export async  function handleBatch(c: Context, batchData: EventData) {
     };
   }
 
+  const experimentAssignments = parseExperimentAssignments(batchData.experiments, batchData.exp);
+
   const processedEvents = batchData.events.map((event) => {
     if (event.type === 'pageview') {
       return {
@@ -41,6 +44,7 @@ export async  function handleBatch(c: Context, batchData: EventData) {
           title: event.title || commonParams.title || '',
           language: event.language || commonParams.lng || '',
         },
+        experiment_assignments: experimentAssignments,
         properties: event.properties || {},
         data_type: 'pageview',
       };
@@ -57,6 +61,7 @@ export async  function handleBatch(c: Context, batchData: EventData) {
           event_value: event.eventValue || 0,
           non_interaction: event.nonInteraction || false,
         },
+        experiment_assignments: experimentAssignments,
         properties: event.properties || {},
         data_type: 'event',
       };
@@ -67,6 +72,7 @@ export async  function handleBatch(c: Context, batchData: EventData) {
       event_data: {
         event_type: 'unknown',
       },
+      experiment_assignments: experimentAssignments,
       raw_event: event,
       data_type: 'unknown',
     };

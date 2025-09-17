@@ -9,7 +9,7 @@
 		"dev": "vite",
 		"preview": "vite preview",
 		"minify-beacons": "terser public/beacon.js -o public/beacon.min.js && terser public/exp-beacon.js -o public/exp-beacon.min.js",
-		"db:apply": "wrangler d1 execute analytics-database --file=./src/database/schema.sql"
+		"db:apply": "wrangler d1 migrations apply analytics-database"
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^1.13.2",

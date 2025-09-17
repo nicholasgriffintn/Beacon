@@ -25,7 +25,20 @@
     {
       "binding": "DB",
       "database_name": "analytics-database",
-      "database_id": "f3f19b02-1c82-4990-a06c-b26b25f582df"
+      "database_id": "f3f19b02-1c82-4990-a06c-b26b25f582df",
+      "migrations_dir": "src/database/migrations"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "CACHE_KV",
+      "id": "5aa5c2448c314c97a78902e1f26ae9cf"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "CDN_BUCKET",
+      "bucket_name": "beacon-cdn"
     }
   ]
 }

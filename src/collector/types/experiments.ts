@@ -9,6 +9,7 @@ export interface Experiment {
   description?: string;
   type: ExperimentType;
   status: ExperimentStatus;
+  site_id?: string;
   targeting_rules: Record<string, any>;
   traffic_allocation: number;
   start_time?: string;
@@ -54,6 +55,7 @@ export interface ExperimentCreate {
   name: string;
   description?: string;
   type: ExperimentType;
+  site_id?: string;
   targeting_rules?: Record<string, any>;
   traffic_allocation?: number;
   start_time?: string;

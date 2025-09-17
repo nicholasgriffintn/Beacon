@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Experiment Results</h2>
+        {% if experiment %}
+        <p style="margin-top: 0.5rem; color: #666;">{{ experiment.name }}</p>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        {% if results %}
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+            {% for variant in results.variants %}
+            <div class="card">
+                <div class="card-header">
+                    <h4>{{ variant.variant_name }}</h4>
+                    {% if variant.statistics.statistical_significance %}
+                    <span class="status-badge status-success">Significant</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <p><strong>Users:</strong> {{ "{:,}".format(variant.metrics.total_users) }}</p>
+                    <p><strong>Conversion Rate:</strong> {{ "{:.2%}".format(variant.metrics.conversion_rate) }}</p>
+                    <p><strong>Conversions:</strong> {{ variant.metrics.conversion_count }}</p>
+                    {% if variant.metrics.conversion_value > 0 %}
+                    <p><strong>Revenue:</strong> ${{ "{:,.2f}".format(variant.metrics.conversion_value) }}</p>
+                    <p><strong>AOV:</strong> ${{ "{:,.2f}".format(variant.metrics.average_order_value) }}</p>
+                    {% endif %}
+                    
+                    <hr style="margin: 1rem 0;">
+                    
+                    <p><strong>95% Confidence Interval:</strong></p>
+                    <p style="font-size: 0.9em; color: #666;">
+                        {{ "{:.2%}".format(variant.statistics.confidence_interval.lower) }} - 
+                        {{ "{:.2%}".format(variant.statistics.confidence_interval.upper) }}
+                    </p>
+                    
+                    {% if variant.statistics.p_value %}
+                    <p><strong>P-value:</strong> {{ "{:.4f}".format(variant.statistics.p_value) }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% if results.summary.recommended_action %}
+        <div class="card">
+            <div class="card-header">
+                <h4>📊 Recommendation</h4>
+            </div>
+            <div class="card-body">
+                <p>{{ results.summary.recommended_action }}</p>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% else %}
+        <p style="text-align: center; color: #666; padding: 2rem;">
+            No results available for this experiment yet.
+            <br><br>
+            Results are generated nightly for experiments with sufficient data.
+        </p>
+        {% endif %}
+        
+        <br>
+        <a href="/experiments" class="btn">← Back to Experiments</a>
+    </div>
+</div>
+{% endblock %}

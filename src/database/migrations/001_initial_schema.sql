@@ -1,4 +1,5 @@
--- Schema for experimentation platform D1 database
+-- Migration 001: Initial schema
+-- Description: Create initial tables for experiments, variants, assignments, and metrics
 
 -- Experiments table
 CREATE TABLE IF NOT EXISTS experiments (
@@ -58,4 +59,4 @@ CREATE TABLE IF NOT EXISTS experiment_metrics (
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_assignments_user_id ON assignments(user_id);
 CREATE INDEX IF NOT EXISTS idx_assignments_experiment_id ON assignments(experiment_id);
-CREATE INDEX IF NOT EXISTS idx_variants_experiment_id ON variants(experiment_id); 
+CREATE INDEX IF NOT EXISTS idx_variants_experiment_id ON variants(experiment_id);

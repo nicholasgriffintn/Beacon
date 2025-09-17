@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Sites Management</h2>
+    </div>
+    <div class="card-body">
+        <details style="margin-bottom: 2rem;">
+            <summary style="cursor: pointer; font-weight: 600; margin-bottom: 1rem;">➕ Add New Site</summary>
+            
+            <form method="post" action="/sites/create">
+                <label for="site_id">Site ID:</label>
+                <input type="text" name="site_id" id="site_id" required placeholder="my-website">
+                
+                <label for="name">Site Name:</label>
+                <input type="text" name="name" id="name" required placeholder="My Website">
+                
+                <label for="domains">Domains (comma-separated):</label>
+                <input type="text" name="domains" id="domains" required placeholder="example.com, www.example.com, *.example.com">
+                
+                <button type="submit" class="btn">Create Site</button>
+            </form>
+        </details>
+
+        {% if sites %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Site ID</th>
+                    <th>Name</th>
+                    <th>Domains</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for site in sites %}
+                <tr>
+                    <td><code>{{ site.site_id }}</code></td>
+                    <td>{{ site.name }}</td>
+                    <td>{{ ', '.join(site.domains) }}</td>
+                    <td><span class="status-badge status-{{ site.status }}">{{ site.status }}</span></td>
+                    <td>{{ site.created_at[:10] }}</td>
+                    <td>
+                        <details style="position: relative;">
+                            <summary style="cursor: pointer; color: #2563eb;">Edit</summary>
+                            <div style="position: absolute; top: 100%; left: 0; background: white; border: 1px solid #ccc; border-radius: 4px; padding: 1rem; min-width: 300px; z-index: 10; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                <form method="post" action="/sites/{{ site.site_id }}/edit">
+                                    <input type="text" name="name" value="{{ site.name }}" placeholder="Site Name" required style="margin-bottom: 0.5rem; width: 100%;">
+                                    <input type="text" name="domains" value="{{ ', '.join(site.domains) }}" placeholder="Domains" required style="margin-bottom: 0.5rem; width: 100%;">
+                                    <select name="status" required style="margin-bottom: 0.5rem; width: 100%;">
+                                        <option value="active" {% if site.status == 'active' %}selected{% endif %}>Active</option>
+                                        <option value="inactive" {% if site.status == 'inactive' %}selected{% endif %}>Inactive</option>
+                                        <option value="suspended" {% if site.status == 'suspended' %}selected{% endif %}>Suspended</option>
+                                    </select>
+                                    <div style="display: flex; gap: 0.5rem;">
+                                        <button type="submit" class="btn" style="flex: 1; font-size: 0.75rem; padding: 0.25rem;">Save</button>
+                                    </div>
+                                </form>
+                                <form method="post" action="/sites/{{ site.site_id }}/delete" style="margin-top: 0.5rem;">
+                                    <button type="submit" class="btn btn-danger" style="width: 100%; font-size: 0.75rem; padding: 0.25rem;" onclick="return confirm('Are you sure?')">Delete Site</button>
+                                </form>
+                            </div>
+                        </details>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align: center; color: #666; padding: 2rem;">No sites found. Create your first site above!</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

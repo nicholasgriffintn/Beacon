@@ -1,4 +1,5 @@
 import type { D1Database } from '@cloudflare/workers-types';
+
 import type { 
   Experiment,
   ExperimentCreate,
@@ -30,19 +31,23 @@ export class ExperimentService {
     );
     
     const result = await stmt.bind(id).first();
-    if (!result?.variants) return null;
+    if (!result) return null;
 
     let variants: Variant[] = [];
     try {
-      variants = JSON.parse(result.variants);
+      const parsedVariants = JSON.parse(result.variants as string);
+      variants = parsedVariants[0]?.id ? parsedVariants : [];
     } catch (error) {
       console.error('Error parsing variants:', error);
     }
 
     return {
       ...result,
-      variants: variants[0].id ? variants : [],
-    };
+      variants,
+      targeting_rules: typeof result.targeting_rules === 'string' 
+        ? JSON.parse(result.targeting_rules) 
+        : result.targeting_rules || {}
+    } as Experiment;
   }
 
   async listExperiments(): Promise<Experiment[]> {
@@ -64,22 +69,28 @@ export class ExperimentService {
     
     const results = await stmt.all();
 
-    if (!results?.variants) return [];
+    if (!results.results) return [];
 
-    let variants: Variant[] = [];
-    try {
-      variants = JSON.parse(results.variants);
-    } catch (error) {
-      console.error('Error parsing variants:', error);
-    }
+    return results.results.map(result => {
+      let variants: Variant[] = [];
+      try {
+        const parsedVariants = JSON.parse(result.variants as string);
+        variants = parsedVariants[0]?.id ? parsedVariants : [];
+      } catch (error) {
+        console.error('Error parsing variants:', error);
+      }
 
-    return results.results.map(result => ({
-      ...result,
-      variants: variants[0].id ? variants : [],
-    }));
+      return {
+        ...result,
+        variants,
+        targeting_rules: typeof result.targeting_rules === 'string' 
+          ? JSON.parse(result.targeting_rules) 
+          : result.targeting_rules || {}
+      } as Experiment;
+    });
   }
 
-  async createExperiment(experiment: ExperimentCreate): Promise<Experiment> {
+  async createExperiment(experimentData: ExperimentCreate): Promise<Experiment> {
     const id = crypto.randomUUID();
     
     await this.db.prepare('BEGIN TRANSACTION').run();
@@ -87,23 +98,24 @@ export class ExperimentService {
     try {
       await this.db.prepare(
         `INSERT INTO experiments (
-          id, name, description, type, status,
+          id, name, description, type, status, site_id,
           targeting_rules, traffic_allocation,
           start_time, end_time
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         id,
-        experiment.name,
-        experiment.description || null,
-        experiment.type,
+        experimentData.name,
+        experimentData.description || null,
+        experimentData.type,
         'draft',
-        JSON.stringify(experiment.targeting_rules || {}),
-        experiment.traffic_allocation || 100,
-        experiment.start_time || null,
-        experiment.end_time || null
+        experimentData.site_id || null,
+        JSON.stringify(experimentData.targeting_rules || {}),
+        experimentData.traffic_allocation || 100,
+        experimentData.start_time || null,
+        experimentData.end_time || null
       ).run();
 
-      for (const variant of experiment.variants) {
+      for (const variant of experimentData.variants) {
         await this.db.prepare(
           `INSERT INTO variants (
             id, experiment_id, name, type,
@@ -121,7 +133,11 @@ export class ExperimentService {
 
       await this.db.prepare('COMMIT').run();
       
-      return await this.getExperiment(id);
+      const createdExperiment = await this.getExperiment(id);
+      if (!createdExperiment) {
+        throw new Error('Failed to retrieve created experiment');
+      }
+      return createdExperiment;
     } catch (error) {
       await this.db.prepare('ROLLBACK').run();
       throw error;
@@ -133,7 +149,7 @@ export class ExperimentService {
     if (!experiment) return null;
 
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: unknown[] = [];
 
     if (update.name !== undefined) {
       updates.push('name = ?');

@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Feature Flags Management</h2>
+    </div>
+    <div class="card-body">
+        <details style="margin-bottom: 2rem;">
+            <summary style="cursor: pointer; font-weight: 600; margin-bottom: 1rem;">➕ Create New Feature Flag</summary>
+            
+            <form method="post" action="/flags/create">
+                <label for="flag_key">Flag Key:</label>
+                <input type="text" name="flag_key" id="flag_key" required placeholder="new-dashboard" pattern="[a-z0-9-_]+" title="Only lowercase letters, numbers, hyphens, and underscores">
+                
+                <label for="name">Display Name:</label>
+                <input type="text" name="name" id="name" required placeholder="New Dashboard">
+                
+                <label for="description">Description:</label>
+                <textarea name="description" id="description" rows="3" placeholder="Enable the new dashboard design"></textarea>
+                
+                <label for="site_id">Site:</label>
+                <select name="site_id" id="site_id">
+                    <option value="">No Site (Global)</option>
+                    {% for site in sites %}
+                    <option value="{{ site.site_id }}">{{ site.name }} ({{ site.site_id }})</option>
+                    {% endfor %}
+                </select>
+                
+                <label>
+                    <input type="checkbox" name="enabled" value="true"> Enabled
+                </label>
+                
+                <label for="rollout_percentage">Rollout Percentage:</label>
+                <input type="number" name="rollout_percentage" id="rollout_percentage" min="0" max="100" value="0" step="1">
+                
+                <button type="submit" class="btn">Create Flag</button>
+            </form>
+        </details>
+
+        {% if flags %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Flag Key</th>
+                    <th>Name</th>
+                    <th>Site</th>
+                    <th>Status</th>
+                    <th>Rollout</th>
+                    <th>Kill Switch</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for flag in flags %}
+                <tr>
+                    <td><code>{{ flag.flag_key }}</code></td>
+                    <td>
+                        <strong>{{ flag.name }}</strong>
+                        {% if flag.description %}<br><small style="color: #666;">{{ flag.description }}</small>{% endif %}
+                    </td>
+                    <td>
+                        {% if flag.site_id %}
+                        <code>{{ flag.site_id }}</code>
+                        {% else %}
+                        <span style="color: #666;">Global</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if flag.enabled %}
+                            <span class="status-badge status-active">Enabled</span>
+                        {% else %}
+                            <span class="status-badge status-inactive">Disabled</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ flag.rollout_percentage }}%</td>
+                    <td>
+                        {% if flag.kill_switch %}
+                            <span class="status-badge status-danger">Active</span>
+                        {% else %}
+                            <span class="status-badge status-inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post" action="/flags/{{ flag.flag_key }}/toggle" style="display: inline;">
+                            {% if flag.enabled %}
+                                <button type="submit" class="btn btn-danger" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Disable</button>
+                            {% else %}
+                                <button type="submit" class="btn btn-success" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Enable</button>
+                            {% endif %}
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align: center; color: #666; padding: 2rem;">No feature flags found. Create your first flag above!</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

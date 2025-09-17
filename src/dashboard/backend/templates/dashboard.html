@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Welcome to Beacon Admin Dashboard</h2>
+    </div>
+    <div class="card-body">
+        <p>Manage your analytics platform from here:</p>
+        <br>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            <div class="card">
+                <div class="card-body">
+                    <h3>🏠 Sites</h3>
+                    <p>Manage your websites and domains</p>
+                    <br>
+                    <a href="/sites" class="btn">Manage Sites</a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h3>🧪 Experiments</h3>
+                    <p>Create and manage A/B tests</p>
+                    <br>
+                    <a href="/experiments" class="btn">Manage Experiments</a>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-body">
+                    <h3>🏁 Feature Flags</h3>
+                    <p>Control feature rollouts</p>
+                    <br>
+                    <a href="/flags" class="btn">Manage Flags</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

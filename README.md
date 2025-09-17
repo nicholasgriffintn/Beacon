@@ -1,53 +1,134 @@
 # Beacon
 
-This is a project to create an analytics and experimentation pipeline and platform using Cloudflare services.
+This is a comprehensive analytics and experimentation platform built on Cloudflare's edge infrastructure, designed to provide enterprise-grade A/B testing, feature flagging, and analytics capabilities while remaining cost-effective and fully open source.
 
-The idea being to have a fully open source, yet easily managed service that doesn't cost you your entire budget.
+**Key Features:**
+- 🚀 **Edge-Native**: Runs entirely on Cloudflare Workers with global edge deployment
+- 🧪 **Full A/B Testing**: Complete experiment lifecycle with statistical analysis
+- 🏁 **Feature Flags**: Advanced targeting rules, rollout controls, and kill switches
+- 📊 **Real-time Analytics**: Event tracking with Iceberg data lake integration
+- 🛡️ **Site Validation**: Domain-based security with request validation
+- 📈 **Visual Analytics**: Apache Superset integration for dashboards and reporting
+- 💰 **Cost Efficient**: Serverless architecture with intelligent caching
 
 > [!NOTE]
 > Please note that this project is still in active development so there are a few features that are not yet fully working or fully imagined.
 
-## TODO
+## 📝 Still in development
+- [ ] **A management dashboard**: A dashboard to manage experiments, feature flags, and sites.
+- [ ] **Complete integration with Superset**: Superset is a tool i want to investigate for visualisations alongside 
 
-- [ ] Create a sites database and validate site IDs against that and valid URLs
-- [ ] Create a Python backend for managing sites, analytics, experiments and variants
-- [ ] Should have the ability to link experiments to metrics being sent via analytics but also custom metrics
-- [ ] Create a backend service for getting the iceberg data and displaying it (Apache Superset?)
-- [ ] Create a scheduled service that gets the results of the experiments and stores them in R2 (Apache Spark?)
-- [ ] Expand on the feature flagging capability
-- [ ] Instead of loading sites and experiments over an API, we should programatically store them statically and then load them from clients via a CDN JSON file
-- [ ] Rewrite this todo list with the next set of tasks
+## 🚀 Potential Future Milestones
+- [ ] **Real-time Analytics Dashboard**: Live event streaming and real-time metrics
+- [ ] **Advanced Targeting**: Geo-location, device, and behavioral targeting rules
+- [ ] **Multi-Armed Bandits**: Dynamic traffic allocation based on performance
+- [ ] **Segment Analysis**: Cohort analysis and user segmentation capabilities
+- [ ] **API Rate Limiting**: Per-site rate limiting and abuse prevention
+- [ ] **Webhook Integration**: Event streaming to external systems
+- [ ] **Data Export**: Bulk data export and ETL pipeline integration
 
-## Running the Collector
+## Quick Start
 
-The collector is the main part of this service that runs on Cloudflare Workers. It is responsible for collecting events from the website and sending them to the Cloudflare Pipelines service.
+### Prerequisites
+- Node.js 18+ with pnpm
+- Cloudflare account with Workers, D1, KV, and R2 enabled
+- Python 3.9+ (for dashboard backend)
+- Docker (for analytics stack)
+
+### 1. Deploy the Collector (Cloudflare Workers)
 
 ```bash
-# Install the dependencies
+# Install dependencies
 pnpm install
 
-# Run the worker
-pnpm run dev
+# Configure your Cloudflare services in wrangler.jsonc:
+# - Update KV namespace ID
+# - Update R2 bucket name
+# - Update D1 database ID
 
-# Access the worker:
-# - Worker URL: http://localhost:5173/beacon.js
+# Deploy database schema
+pnpm wrangler d1 execute analytics-database --file=src/database/schema.sql
+
+# Deploy to Cloudflare Workers
+pnpm run deploy
+
+# For local development:
+pnpm run dev
 ```
 
-## Running the Dashboard
-
-The Beacon Dashboard is composed of a Python FastAPI backend, and a React frontend. You can run both services using podman-compose:
+### 2. Configure Admin Dashboard
 
 ```bash
-# Navigate to the dashboard directory
-cd src/dashboard
+cd src/dashboard/backend
 
-# Start the services
-podman-compose up
+# Create virtual environment
+python3 -m venv venv
 
-# Access the application:
-# - Dashboard: http://localhost:8080
-# - Dashboard API: http://localhost:8081/api/hello
-# - Jupyter: http://localhost:8888
+# Activate virtual environment
+source venv/bin/activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create environment file
+cp .env.example .env
+
+# Edit .env with your values:
+# WORKER_BASE_URL=https://your-worker.your-subdomain.workers.dev
+
+# Run the backend
+uvicorn main:app --reload --port 8000
+
+# You should now be able to access the dashboard at http://localhost:8000
+```
+
+## API Documentation
+
+### Core Endpoints
+
+#### Events Collection
+- `POST /api/events/collect` - Single event collection
+- `POST /api/events/batch` - Batch event collection
+
+#### Site Management
+- `GET /api/sites` - List all sites
+- `POST /api/sites` - Create new site
+- `GET /api/sites/:siteId` - Get site details
+- `PUT /api/sites/:siteId` - Update site
+- `DELETE /api/sites/:siteId` - Delete site
+
+#### Experiment Management
+- `GET /api/experiments` - List experiments
+- `POST /api/experiments` - Create experiment
+- `GET /api/experiments/:id` - Get experiment
+- `PUT /api/experiments/:id` - Update experiment
+- `POST /api/experiments/:id/assign` - Assign variant to user
+
+#### Experiment Results
+- `GET /api/experiments/:id/results` - Get latest results
+- `GET /api/experiments/:id/results/history` - Get results history
+- `GET /api/experiments/:id/results/:timestamp` - Get specific result
+
+#### Feature Flags
+- `GET /api/flags` - List feature flags
+- `POST /api/flags` - Create feature flag
+- `GET /api/flags/:flagKey` - Get flag details
+- `PUT /api/flags/:flagKey` - Update flag
+- `DELETE /api/flags/:flagKey` - Delete flag
+- `POST /api/flags/:flagKey/resolve` - Resolve flag for user
+- `POST /api/flags/resolve` - Bulk flag resolution
+
+#### CDN Publishing
+- `POST /api/admin/publish/experiments` - Publish experiments to CDN
+- `POST /api/admin/publish/sites` - Publish sites to CDN
+- `POST /api/admin/publish/all` - Publish all definitions
+
+### Authentication
+
+Admin endpoints require an API key passed in the `X-API-Key` header:
+
+```bash
+curl -H "X-API-Key: your-api-key" https://your-api.com/api/sites
 ```
 
 ## Set up on Cloudflare

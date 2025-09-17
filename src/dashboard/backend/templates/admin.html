@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Admin Tools</h2>
+    </div>
+    <div class="card-body">
+        <h3>📦 CDN Publishing</h3>
+        <p>Publish definitions to CDN for client consumption:</p>
+        <br>
+        
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <form method="post" action="/admin/publish/experiments">
+                <button type="submit" class="btn">Publish Experiments</button>
+            </form>
+            
+            <form method="post" action="/admin/publish/sites">
+                <button type="submit" class="btn">Publish Sites</button>
+            </form>
+            
+            <form method="post" action="/admin/publish/all">
+                <button type="submit" class="btn btn-success">Publish All</button>
+            </form>
+        </div>
+        
+        <br><br>
+        
+        <div class="card">
+            <div class="card-body">
+                <h4>ℹ️ About CDN Publishing</h4>
+                <p>Publishing creates static JSON files that clients can fetch directly from the CDN instead of making API calls. This improves performance and reduces Worker invocations.</p>
+                <ul style="margin-left: 1rem; margin-top: 0.5rem;">
+                    <li><strong>Experiments:</strong> Active experiments with variants</li>
+                    <li><strong>Sites:</strong> Site configurations and domains</li>
+                    <li><strong>All:</strong> Both experiments and sites</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

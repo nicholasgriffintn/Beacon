@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2>Experiments Management</h2>
+    </div>
+    <div class="card-body">
+        <details style="margin-bottom: 2rem;">
+            <summary style="cursor: pointer; font-weight: 600; margin-bottom: 1rem;">➕ Create New Experiment</summary>
+            
+            <form method="post" action="/experiments/create">
+                <label for="name">Experiment Name:</label>
+                <input type="text" name="name" id="name" required placeholder="Homepage Button Test">
+                
+                <label for="description">Description:</label>
+                <textarea name="description" id="description" rows="3" placeholder="Testing different button colors for conversion rate"></textarea>
+                
+                <label for="experiment_type">Type:</label>
+                <select name="experiment_type" id="experiment_type" required>
+                    <option value="ab_test">A/B Test</option>
+                    <option value="feature_flag">Feature Flag</option>
+                    <option value="holdout">Holdout</option>
+                </select>
+                
+                <label for="site_id">Site:</label>
+                <select name="site_id" id="site_id">
+                    <option value="">No Site (Global)</option>
+                    {% for site in sites %}
+                    <option value="{{ site.site_id }}">{{ site.name }} ({{ site.site_id }})</option>
+                    {% endfor %}
+                </select>
+                
+                <label for="traffic_allocation">Traffic Allocation (%):</label>
+                <input type="number" name="traffic_allocation" id="traffic_allocation" min="0" max="100" value="100" step="0.1">
+                
+                <button type="submit" class="btn">Create Experiment</button>
+            </form>
+        </details>
+
+        {% if experiments %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Type</th>
+                    <th>Site</th>
+                    <th>Status</th>
+                    <th>Traffic</th>
+                    <th>Variants</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for exp in experiments %}
+                <tr>
+                    <td>
+                        <strong>{{ exp.name }}</strong>
+                        {% if exp.description %}<br><small style="color: #666;">{{ exp.description }}</small>{% endif %}
+                    </td>
+                    <td>{{ exp.type.replace('_', ' ').title() }}</td>
+                    <td>
+                        {% if exp.site_id %}
+                        <code>{{ exp.site_id }}</code>
+                        {% else %}
+                        <span style="color: #666;">Global</span>
+                        {% endif %}
+                    </td>
+                    <td><span class="status-badge status-{{ exp.status }}">{{ exp.status }}</span></td>
+                    <td>{{ exp.traffic_allocation }}%</td>
+                    <td>{{ exp.variants|length if exp.variants else 0 }}</td>
+                    <td>{{ exp.created_at[:10] }}</td>
+                    <td>
+                        <a href="/experiments/{{ exp.id }}/results" class="btn" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">View Results</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p style="text-align: center; color: #666; padding: 2rem;">No experiments found. Create your first experiment above!</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
