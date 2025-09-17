@@ -39,7 +39,7 @@ The Beacon Dashboard is composed of a Python FastAPI backend, and a React fronte
 
 ```bash
 # Navigate to the dashboard directory
-cd dashboard
+cd src/dashboard
 
 # Start the services
 podman-compose up

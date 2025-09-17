@@ -3,7 +3,7 @@
 	"name": "analytics-pipeline",
   "compatibility_flags": ["nodejs_compat"],
 	"compatibility_date": "2025-04-01",
-	"main": "collector/index.ts",
+	"main": "src/collector/index.ts",
 	"observability": {
 		"enabled": true,
     "head_sampling_rate": 1,
@@ -13,8 +13,7 @@
   },
   "upload_source_maps": true,
 	"assets": {
-		"binding": "ASSETS",
-		"not_found_handling": "single-page-application"
+		"binding": "ASSETS"
 	},
 	"pipelines": [
     {

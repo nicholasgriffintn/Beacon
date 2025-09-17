@@ -1,5 +1,5 @@
 import MarkdownRenderer from './components/MarkdownRenderer';
-import readmeContent from '../README.md?raw';
+import readmeContent from '../../README.md?raw';
 import { TestingControls } from './components/TestingControls';
 import { ProcessingModeTester } from './components/ProcessingModeTester';
 import { ExperimentTester } from './components/ExperimentTester';
