@@ -4,7 +4,8 @@ import { collectCommonAnalyticsData } from "../lib";
 import type { EventData } from "../types";
 
 export async function handleEvent(c: Context, eventData: EventData) {
-  if (!eventData.siteId || !eventData.eventName) {
+  const isValidEventData = eventData.s && eventData.eventName;
+  if (!isValidEventData) {
     return {
       success: false,
       nextLastModifiedDate: null

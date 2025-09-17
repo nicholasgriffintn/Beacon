@@ -22,6 +22,20 @@ export type Experiment = {
 declare global {
   interface Window {
     Beacon?: {
+      version: string;
+      config: Record<string, string>;
+      init: (config: {
+        endpoint: string;
+        siteId: string;
+        debug: boolean;
+        trackClicks: boolean;
+        trackUserTimings: boolean;
+        respectDoNotTrack: boolean;
+        directEvents?: boolean;
+        directPageViews?: boolean;
+        batchSize?: number;
+        batchTimeout?: number;
+      }) => void;
       trackEvent: (event: {
         name: string;
         category: string;
@@ -35,14 +49,8 @@ declare global {
         virtualPageview?: boolean;
         properties?: Record<string, string>;
       }) => void;
-      init: (config: {
-        endpoint: string;
-        siteId: string;
-        debug: boolean;
-        trackClicks: boolean;
-        trackUserTimings: boolean;
-        respectDoNotTrack: boolean;
-      }) => void;
+      setConsent: (consent: boolean) => void;
+      hasConsent: () => boolean;
     };
     _beaconInitialized?: boolean;
     _expBeaconInitialized?: boolean;
@@ -67,11 +75,19 @@ export function Analytics({
   beaconEndpoint = BEACON_ENDPOINT,
   beaconSiteId = "test-beacon",
   beaconDebug = false,
+  directEvents = false,
+  directPageViews = true,
+  batchSize = 10,
+  batchTimeout = 5000,
 }: {
   isEnabled?: boolean;
   beaconEndpoint?: string;
   beaconSiteId?: string;
   beaconDebug?: boolean;
+  directEvents?: boolean;
+  directPageViews?: boolean;
+  batchSize?: number;
+  batchTimeout?: number;
 }) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only react to enabled state
   useEffect(() => {
@@ -103,6 +119,10 @@ export function Analytics({
           trackClicks: true,
           trackUserTimings: true,
           respectDoNotTrack: false,
+          directEvents,
+          directPageViews,
+          batchSize,
+          batchTimeout,
         });
       }
     };

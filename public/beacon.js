@@ -15,6 +15,7 @@
     batchSize: 10,
     batchTimeout: 5000, // 5 seconds
     directPageViews: true,
+    directEvents: false,
     requireConsent: false,
     respectDoNotTrack: true,
     consentCookie: 'beacon_consent',
@@ -26,7 +27,7 @@
       if (cookieConsent === 'true') {
         return true;
       }
-      
+
       const storageConsent = localStorage.getItem(Beacon.config.consentCookie);
       return storageConsent === 'true';
     } catch (e) {
@@ -54,9 +55,9 @@
   const setConsent = (consent) => {
     try {
       setCookie(Beacon.config.consentCookie, consent.toString(), 365);
-      
+
       localStorage.setItem(Beacon.config.consentCookie, consent.toString());
-      
+
       return true;
     } catch (e) {
       if (Beacon.config.debug) {
@@ -92,7 +93,7 @@
   const eventQueue = [];
   let batchSendTimeout = null;
   let sessionUserId = null;
-  
+
   const generateId = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
@@ -133,21 +134,26 @@
     };
   };
 
-  const sendEvents = async (events) => {
-    if (!events || events.length === 0) return;
-    
+  const sendEvent = async (event) => {
+    if (!event) return;
+
     try {
-      const endpoint = `${Beacon.config.endpoint}/api/events/batch`;
-      
+      const endpoint = `${Beacon.config.endpoint}/api/events/collect`;
+
       const payload = {
-        ...getCommonParams(),
-        events: events
+        s: Beacon.config.siteId,
+        eventName: event.eventName,
+        eventCategory: event.eventCategory,
+        eventLabel: event.eventLabel,
+        eventValue: event.eventValue,
+        properties: event.properties,
+        queryParams: getCommonParams()
       };
-      
+
       if (Beacon.config.debug) {
-        console.log('Beacon: Sending events', payload);
+        console.log('Beacon: Sending event', payload);
       }
-      
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -156,11 +162,49 @@
         body: JSON.stringify(payload),
         keepalive: true
       });
-      
+
       if (!response.ok) {
         throw new Error(`Server responded with ${response.status}`);
       }
-      
+
+      if (Beacon.config.debug) {
+        console.log('Beacon: Event sent successfully');
+      }
+    } catch (error) {
+      if (Beacon.config.debug) {
+        console.error('Beacon: Error sending event', error);
+      }
+    }
+  };
+
+  const sendEvents = async (events) => {
+    if (!events || events.length === 0) return;
+
+    try {
+      const endpoint = `${Beacon.config.endpoint}/api/events/batch`;
+
+      const payload = {
+        ...getCommonParams(),
+        events: events
+      };
+
+      if (Beacon.config.debug) {
+        console.log('Beacon: Sending events', payload);
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        keepalive: true
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with ${response.status}`);
+      }
+
       if (Beacon.config.debug) {
         console.log('Beacon: Events sent successfully');
       }
@@ -176,12 +220,12 @@
       const eventsToSend = eventQueue.splice(0, Beacon.config.batchSize);
       sendEvents(eventsToSend);
     }
-    
+
     if (batchSendTimeout) {
       clearTimeout(batchSendTimeout);
       batchSendTimeout = null;
     }
-    
+
     if (eventQueue.length > 0) {
       batchSendTimeout = setTimeout(() => processQueue(true), Beacon.config.batchTimeout);
     }
@@ -194,7 +238,7 @@
       }
       return;
     }
-  
+
     const {
       contentType = 'page',
       virtualPageview = false,
@@ -210,7 +254,7 @@
       virtualPageview,
       properties
     };
-    
+
     if (Beacon.config.directPageViews) {
       sendEvents([eventParams]);
     } else {
@@ -246,9 +290,13 @@
       nonInteraction: nonInteraction,
       properties: properties
     };
-    
-    eventQueue.push(eventParams);
-    processQueue();
+
+    if (Beacon.config.directEvents) {
+      sendEvent(eventParams);
+    } else {
+      eventQueue.push(eventParams);
+      processQueue();
+    }
   };
 
   const initClickTracking = () => {
@@ -258,7 +306,7 @@
 
       const href = link.href || '';
       const linkText = link.innerText || link.textContent || 'unknown';
-      
+
       trackEvent({
         name: 'click',
         category: 'link',
@@ -270,15 +318,15 @@
 
   const initPerformanceTracking = () => {
     if (!window.performance || !window.performance.timing) return;
-    
+
     window.addEventListener('load', () => {
       setTimeout(() => {
         const timing = window.performance.timing;
-        
+
         const pageLoadTime = timing.loadEventEnd - timing.navigationStart;
         const domLoadTime = timing.domComplete - timing.domLoading;
         const networkLatency = timing.responseEnd - timing.fetchStart;
-        
+
         trackEvent({
           name: 'performance',
           category: 'page_load',
@@ -300,22 +348,22 @@
       }, 0);
     });
   };
-  
+
   const Beacon = {
     version: '1.0.0',
     config: { ...defaultConfig },
-    
+
     init: function(customConfig = {}) {
       this.config = { ...this.config, ...customConfig };
-      
+
       if (!this.config.siteId) {
         console.error('Beacon: siteId is required');
         return;
       }
-      
+
       if (this.config.trackPageViews) {
         trackPageView();
-        
+
         if (window.history?.pushState) {
           const originalPushState = window.history.pushState;
           window.history.pushState = function(...args) {
@@ -326,38 +374,38 @@
               }
             );
           };
-          
+
           window.addEventListener('popstate', () => trackPageView({
             virtualPageview: true
           }));
         }
       }
-      
+
       if (this.config.trackClicks) {
         initClickTracking();
       }
-      
+
       if (this.config.trackUserTimings) {
         initPerformanceTracking();
       }
-      
+
       window.addEventListener('beforeunload', () => {
         processQueue(true);
       });
-      
+
       if (this.config.debug) {
         console.log('Beacon: Initialized with config', this.config);
       }
-      
+
       return this;
     },
-    
+
     trackEvent,
     trackPageView,
     setConsent,
     hasConsent
   };
-  
+
   window.Beacon = Beacon;
-  
-})(window); 
+
+})(window);

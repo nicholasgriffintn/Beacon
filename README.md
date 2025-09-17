@@ -95,6 +95,7 @@ Include the script in your HTML:
 - **batchSize**: Number of events to send in a batch (default: 10)
 - **batchTimeout**: Time in ms before sending partial batch (default: 5000)
 - **directPageViews**: Send page views immediately instead of batching (default: true)
+- **directEvents**: Send custom events immediately instead of batching (default: false)
 - **requireConsent**: Require user consent before tracking (default: false)
 - **respectDoNotTrack**: Respect browser Do Not Track setting (default: true)
 - **consentCookie**: Name of the cookie used to store consent (default: 'beacon_consent')
@@ -108,7 +109,8 @@ Beacon.init({
   siteId: 'YOUR_SITE_ID',
   debug: true, // Set to false in production
   trackClicks: true, // Optional: automatically track link clicks
-  trackUserTimings: true // Optional: track page performance metrics
+  trackUserTimings: true, // Optional: track page performance metrics
+  directEvents: false // Optional: send events immediately (true) or batch them (false)
 });
 
 // Track custom events
@@ -121,6 +123,43 @@ Beacon.trackEvent({
 
 // Manually track a page view (happens automatically with trackPageViews: true)
 Beacon.trackPageView();
+```
+
+## Event Processing Modes
+
+Beacon supports two processing modes for events:
+
+### Batch Processing (Default)
+Events are queued and sent in batches to reduce network requests and improve performance.
+
+```javascript
+Beacon.init({
+  siteId: 'YOUR_SITE_ID',
+  directEvents: false, // Default: batch processing
+  batchSize: 10, // Send batch when 10 events are queued
+  batchTimeout: 5000 // Or send after 5 seconds
+});
+```
+
+### Direct Processing
+Events are sent immediately as they occur, useful for critical events that need real-time processing.
+
+```javascript
+Beacon.init({
+  siteId: 'YOUR_SITE_ID',
+  directEvents: true // Send events immediately
+});
+```
+
+### Hybrid Approach
+You can use different processing modes for different event types:
+
+```javascript
+Beacon.init({
+  siteId: 'YOUR_SITE_ID',
+  directPageViews: true, // Send page views immediately
+  directEvents: false // Batch custom events
+});
 ```
 
 ## Experiments
