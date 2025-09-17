@@ -8,11 +8,6 @@ import { ExperimentService } from "./services/experiment";
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use("*", async (c: Context, next: Next) => {
-  console.log("Request received", c.req.raw.url);
-  await next();
-});
-
 const origin = () => {
   return "*";
 };
@@ -95,22 +90,6 @@ app.get("/api/experiments", async (c: Context) => {
   }
 });
 
-app.get("/api/experiments/:id", async (c: Context) => {
-  try {
-    const experimentService = new ExperimentService(c.env.DB);
-    const experiment = await experimentService.getExperiment(c.req.param("id"));
-    
-    if (!experiment) {
-      return c.json({ error: "Experiment not found" }, 404);
-    }
-    
-    return c.json(experiment);
-  } catch (e) {
-    console.error(e);
-    return c.json({ error: "Error getting experiment" }, 500);
-  }
-});
-
 app.post("/api/experiments", async (c: Context) => {
   try {
     let experimentData: ExperimentCreate;
@@ -127,6 +106,22 @@ app.post("/api/experiments", async (c: Context) => {
   } catch (e) {
     console.error(e);
     return c.json({ error: "Error creating experiment" }, 500);
+  }
+});
+
+app.get("/api/experiments/:id", async (c: Context) => {
+  try {
+    const experimentService = new ExperimentService(c.env.DB);
+    const experiment = await experimentService.getExperiment(c.req.param("id"));
+    
+    if (!experiment) {
+      return c.json({ error: "Experiment not found" }, 404);
+    }
+    
+    return c.json(experiment);
+  } catch (e) {
+    console.error(e);
+    return c.json({ error: "Error getting experiment" }, 500);
   }
 });
 
