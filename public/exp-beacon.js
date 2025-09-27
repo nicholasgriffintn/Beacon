@@ -145,6 +145,7 @@
           name: 'experiment_exposure',
           category: 'experiment',
           label: experimentId,
+          non_interaction: true,
           properties: {
             experiment_id: experimentId,
             variant_id: assignment.variant_id,
@@ -246,6 +247,7 @@
       category: 'experiment',
       label: conversionId,
       value: value,
+      non_interaction: true,
       properties: {
         ...properties,
         experiment_id: experimentId,

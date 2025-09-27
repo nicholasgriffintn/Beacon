@@ -277,7 +277,7 @@
       category,
       label = '',
       value = 0,
-      nonInteraction = false,
+      non_interaction = false,
       properties = {}
     } = params;
 
@@ -288,7 +288,7 @@
       event_category: category,
       event_label: label,
       event_value: value,
-      non_interaction: nonInteraction,
+      non_interaction: non_interaction,
       properties: properties
     };
 
