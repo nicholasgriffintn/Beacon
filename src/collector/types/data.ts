@@ -83,8 +83,7 @@ export interface AnalyticsEventData {
 }
 
 export interface AnalyticsFullEventData extends AnalyticsEventData {
-  experiment_assignments?: ExperimentAssignment[];
+  experiment_assignments?: string;
   data_type: string;
-
 }
 

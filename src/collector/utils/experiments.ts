@@ -32,3 +32,7 @@ export function parseExperimentAssignments(
 
   return uniqueAssignments;
 }
+
+export function returnCompactedAssignments(assignments: ExperimentAssignment[]): string {
+  return assignments.map(assignment => `${assignment.experiment_id}:${assignment.variant_id}`).join(';');
+}

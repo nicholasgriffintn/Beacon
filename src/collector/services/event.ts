@@ -2,7 +2,7 @@ import type { Context } from "hono";
 
 import { collectCommonAnalyticsData } from "../lib";
 import type { AnalyticsFullEventData, EventData } from "../types";
-import { parseExperimentAssignments } from "../utils";
+import { parseExperimentAssignments, returnCompactedAssignments } from "../utils";
 
 export async function handleEvent(c: Context, eventData: EventData) {
   const isValidEventData = eventData.s && eventData.event_name;
@@ -16,10 +16,11 @@ export async function handleEvent(c: Context, eventData: EventData) {
   const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, eventData, false);
 
   const experimentAssignments = parseExperimentAssignments([], eventData.exp);
+  const compactedAssignments = returnCompactedAssignments(experimentAssignments);
 
   const fullEventData: AnalyticsFullEventData = {
     ...analyticsData,
-    experiment_assignments: experimentAssignments,
+    experiment_assignments: compactedAssignments,
     data_type: "event",
   };
 
