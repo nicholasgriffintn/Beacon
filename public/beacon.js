@@ -332,19 +332,22 @@
           name: 'performance',
           category: 'page_load',
           label: 'total_time',
-          value: pageLoadTime
+          value: pageLoadTime,
+          non_interaction: true
         });
         trackEvent({
           name: 'performance',
           category: 'page_load',
           label: 'dom_load',
-          value: domLoadTime
+          value: domLoadTime,
+          non_interaction: true
         });
         trackEvent({
           name: 'performance',
           category: 'page_load',
           label: 'network_latency',
-          value: networkLatency
+          value: networkLatency,
+          non_interaction: true
         });
       }, 0);
     });
