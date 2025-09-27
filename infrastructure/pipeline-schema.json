@@ -1,0 +1,253 @@
+{
+  "fields": [
+    {
+      "name": "timestamp",
+      "type": "string",
+      "required": true
+    },
+    {
+      "name": "session_data",
+      "type": "struct",
+      "required": true,
+      "fields": [
+        {
+          "name": "site_id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "client_timestamp",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "user_id",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "hits",
+          "type": "int32",
+          "required": true
+        },
+        {
+          "name": "new_visitor",
+          "type": "bool",
+          "required": true
+        },
+        {
+          "name": "bounce",
+          "type": "bool",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "event_data",
+      "type": "struct",
+      "required": true,
+      "fields": [
+        {
+          "name": "event_id",
+          "type": "int32",
+          "required": true
+        },
+        {
+          "name": "version_tag",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "content_type",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "event_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "event_category",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "event_label",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "event_value",
+          "type": "int32",
+          "required": true
+        },
+        {
+          "name": "non_interaction",
+          "type": "bool",
+          "required": true
+        },
+        {
+          "name": "virtual_pageview",
+          "type": "bool",
+          "required": true
+        },
+        {
+          "name": "event_type",
+          "type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "app_data",
+      "type": "struct",
+      "required": true,
+      "fields": [
+        {
+          "name": "app_name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "app_type",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "library_version",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "language",
+          "type": "string",
+          "required": true
+        }
+      ]
+    },
+    {
+      "name": "device_info",
+      "type": "struct",
+      "required": true,
+      "fields": [
+        {
+          "name": "browser",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "os",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "device",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "user_agent",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "screen",
+          "type": "struct",
+          "required": false,
+          "fields": [
+            {
+              "name": "width",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "height",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "offset_x",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "offset_y",
+              "type": "string",
+              "required": false
+            }
+          ]
+        },
+        {
+          "name": "viewport",
+          "type": "struct",
+          "required": false,
+          "fields": [
+            {
+              "name": "width",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "height",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "offset_x",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "offset_y",
+              "type": "string",
+              "required": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "referrer",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "page",
+      "type": "struct",
+      "required": false,
+      "fields": [
+        {
+          "name": "url",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "required": false
+        }
+      ]
+    },
+    {
+      "name": "ip",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "properties",
+      "type": "json",
+      "required": false
+    },
+    {
+      "name": "experiment_assignments",
+      "type": "string",
+      "required": false
+    },
+    {
+      "name": "data_type",
+      "type": "string",
+      "required": false
+    }
+  ]
+}

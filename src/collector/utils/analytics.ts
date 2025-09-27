@@ -1,3 +1,5 @@
+import type { DeviceInfo, ScreenDimensions } from "../types";
+
 export function hasUserBounced(hits: number): boolean {
   if (hits === 1) {
     return true;
@@ -8,12 +10,7 @@ export function hasUserBounced(hits: number): boolean {
   return false;
 }
 
-export function extractDeviceInfo(userAgent?: string): {
-  browser: string;
-  os: string;
-  device: string;
-  user_agent: string;
-} {
+export function extractDeviceInfo(userAgent?: string): DeviceInfo {
   let browser = "Unknown";
   let os = "Unknown";
   let device = "Unknown";
@@ -64,12 +61,7 @@ export function extractDeviceInfo(userAgent?: string): {
   return { browser, os, device, user_agent: userAgent || "NA" };
 }
 
-export function parseScreenDimensions(dimensionStr: string): {
-  width: number;
-  height: number;
-  offsetX: number;
-  offsetY: number;
-} | undefined {
+export function parseScreenDimensions(dimensionStr: string): ScreenDimensions | undefined {
   if (!dimensionStr) {
     return undefined;
   }
@@ -82,7 +74,7 @@ export function parseScreenDimensions(dimensionStr: string): {
   return {
     width: Number.parseInt(parts[0], 10) || 0,
     height: Number.parseInt(parts[1], 10) || 0,
-    offsetX: parts.length > 2 ? (Number.parseInt(parts[2], 10) || 0) : 0,
-    offsetY: parts.length > 3 ? (Number.parseInt(parts[3], 10) || 0) : 0,
+    offset_x: parts.length > 2 ? (Number.parseInt(parts[2], 10) || 0) : 0,
+    offset_y: parts.length > 3 ? (Number.parseInt(parts[3], 10) || 0) : 0,
   };
 }

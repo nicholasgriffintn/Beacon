@@ -23,8 +23,9 @@ export interface EventData {
   event_category: string;
   event_label: string;
   event_value: number;
-  virtual_pageview: boolean;
-  non_interaction: boolean;
+  virtual_pageview?: boolean;
+  non_interaction?: boolean;
+  event_type: string;
   properties: Record<string, string>;
   exp?: string; // "expId:variantId;expId2:variantId2"
 }
@@ -36,8 +37,17 @@ export interface BatchEventData extends EventData {
 export interface ScreenDimensions {
   width?: number;
   height?: number;
-  offsetX?: number;
-  offsetY?: number;
+  offset_x?: number;
+  offset_y?: number;
+}
+
+export interface DeviceInfo {
+  browser: string;
+  os: string;
+  device: string;
+  user_agent: string;
+  screen?: ScreenDimensions;
+  viewport?: ScreenDimensions;
 }
 
 export interface AnalyticsEventData {
@@ -47,8 +57,8 @@ export interface AnalyticsEventData {
     client_timestamp: string;
     user_id: string;
     hits: number;
-    new_visitor: number;
-    bounce: number;
+    new_visitor: boolean;
+    bounce: boolean;
   },
   event_data: {
     event_id: number;
@@ -58,6 +68,9 @@ export interface AnalyticsEventData {
     event_category: string;
     event_label: string;
     event_value: number;
+    non_interaction: boolean;
+    virtual_pageview: boolean;
+    event_type: string;
   },
   app_data: {
     app_name: string;
@@ -65,14 +78,7 @@ export interface AnalyticsEventData {
     library_version: string;
     language: string;
   },
-  device_info?: {
-    browser?: string;
-    os?: string;
-    device?: string;
-    user_agent?: string;
-    screen?: ScreenDimensions;
-    viewport?: ScreenDimensions;
-  },
+  device_info?: DeviceInfo,
   referrer: string;
   page: {
     url: string;

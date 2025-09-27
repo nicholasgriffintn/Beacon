@@ -32,6 +32,9 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
     event_category: eventCategory = "interaction",
     event_label: eventLabel = "",
     event_value: eventValue = 0,
+    non_interaction: nonInteraction = false,
+    virtual_pageview: virtualPageview = false,
+    event_type: eventType = "",
     properties = {},
   } = eventData;
 
@@ -61,8 +64,8 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
       client_timestamp: timestamp || Date.now().toString(),
       user_id: userId || `user${Math.floor(Math.random() * 1000)}`,
       hits,
-      new_visitor: isVisit ? 1 : 0,
-      bounce: isBounce ? 1 : 0,
+      new_visitor: isVisit,
+      bounce: isBounce,
     },
     event_data: {
       event_id: Math.floor(Math.random() * 1000),
@@ -72,6 +75,9 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
       event_category: eventCategory,
       event_label: eventLabel,
       event_value: eventValue,
+      non_interaction: nonInteraction,
+      virtual_pageview: virtualPageview,
+      event_type: eventType,
     },
     app_data: {
       app_name: appName,
