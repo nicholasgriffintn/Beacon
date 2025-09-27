@@ -1,0 +1,36 @@
+{
+  "s": "beacon-docs",
+  "ts": "1758987369841",
+  "vtag": "1.0.0",
+  "r": "1800x1169x0x44",
+  "re": "978x483",
+  "lng": "en-GB",
+  "library_version": "1.0.0",
+  "app_name": "Beacon",
+  "app_type": "web",
+  "user_id": "e0620bb4-0f16-4e4d-857d-5c6a0ad765af",
+  "p": "/",
+  "ref": "http://localhost:5173/",
+  "events": [
+    {
+      "s": "beacon-docs",
+      "ts": "1758987369841",
+      "vtag": "1.0.0",
+      "r": "1800x1169x0x44",
+      "re": "978x483",
+      "lng": "en-GB",
+      "library_version": "1.0.0",
+      "app_name": "Beacon",
+      "app_type": "web",
+      "user_id": "e0620bb4-0f16-4e4d-857d-5c6a0ad765af",
+      "p": "/",
+      "ref": "http://localhost:5173/",
+      "type": "pageview",
+      "path": "/",
+      "title": "Beacon",
+      "content_type": "page",
+      "virtual_page_view": false,
+      "properties": {}
+    }
+  ]
+}

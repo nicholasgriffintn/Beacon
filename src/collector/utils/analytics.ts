@@ -1,20 +1,25 @@
-export function getBounceValue(hits: number): number {
+export function hasUserBounced(hits: number): boolean {
   if (hits === 1) {
-    return 1;
+    return true;
   }
   if (hits === 2) {
-    return -1;
+    return false;
   }
-  return 0;
+  return false;
 }
 
-export function extractDeviceInfo(userAgent?: string) {
+export function extractDeviceInfo(userAgent?: string): {
+  browser: string;
+  os: string;
+  device: string;
+  user_agent: string;
+} {
   let browser = "Unknown";
   let os = "Unknown";
   let device = "Unknown";
 
   if (!userAgent) {
-    return { browser, os, device };
+    return { browser, os, device, user_agent: userAgent || "NA" };
   }
 
   if (userAgent.includes("Firefox")) {
@@ -56,14 +61,23 @@ export function extractDeviceInfo(userAgent?: string) {
     ? "Mobile"
     : "Desktop";
 
-  return { browser, os, device };
+  return { browser, os, device, user_agent: userAgent || "NA" };
 }
 
-export function parseScreenDimensions(dimensionStr: string) {
-  if (!dimensionStr) return null;
+export function parseScreenDimensions(dimensionStr: string): {
+  width: number;
+  height: number;
+  offsetX: number;
+  offsetY: number;
+} | undefined {
+  if (!dimensionStr) {
+    return undefined;
+  }
 
   const parts = dimensionStr.split('x');
-  if (parts.length < 2) return null;
+  if (parts.length < 2) {
+    return undefined;
+  }
 
   return {
     width: Number.parseInt(parts[0], 10) || 0,

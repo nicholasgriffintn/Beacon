@@ -140,14 +140,15 @@
     try {
       const endpoint = `${Beacon.config.endpoint}/api/events/collect`;
 
+      const commonParams = getCommonParams();
+
       const payload = {
-        s: Beacon.config.siteId,
-        eventName: event.eventName,
-        eventCategory: event.eventCategory,
-        eventLabel: event.eventLabel,
-        eventValue: event.eventValue,
+        ...commonParams,
+        event_name: event.event_name,
+        event_category: event.event_category,
+        event_label: event.event_label,
+        event_value: event.event_value,
         properties: event.properties,
-        queryParams: getCommonParams()
       };
 
       if (Beacon.config.debug) {
@@ -240,8 +241,8 @@
     }
 
     const {
-      contentType = 'page',
-      virtualPageview = false,
+      content_type = 'page',
+      virtual_page_view = false,
       properties = {}
     } = params;
 
@@ -250,8 +251,8 @@
       type: 'pageview',
       path: window.location.pathname,
       title: document.title,
-      contentType,
-      virtualPageview,
+      content_type,
+      virtual_page_view,
       properties
     };
 
@@ -283,11 +284,11 @@
     const eventParams = {
       ...getCommonParams(),
       type: 'event',
-      eventName: name,
-      eventCategory: category,
-      eventLabel: label,
-      eventValue: value,
-      nonInteraction: nonInteraction,
+      event_name: name,
+      event_category: category,
+      event_label: label,
+      event_value: value,
+      non_interaction: nonInteraction,
       properties: properties
     };
 
@@ -331,19 +332,19 @@
           name: 'performance',
           category: 'page_load',
           label: 'total_time',
-          value: pageLoadTime.toString()
+          value: pageLoadTime
         });
         trackEvent({
           name: 'performance',
           category: 'page_load',
           label: 'dom_load',
-          value: domLoadTime.toString()
+          value: domLoadTime
         });
         trackEvent({
           name: 'performance',
           category: 'page_load',
           label: 'network_latency',
-          value: networkLatency.toString()
+          value: networkLatency
         });
       }, 0);
     });
@@ -370,13 +371,13 @@
             originalPushState.apply(this, args);
             trackPageView(
               {
-                virtualPageview: true
+                virtual_page_view: true
               }
             );
           };
 
           window.addEventListener('popstate', () => trackPageView({
-            virtualPageview: true
+            virtual_page_view: true
           }));
         }
       }

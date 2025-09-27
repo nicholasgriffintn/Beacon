@@ -45,8 +45,8 @@ declare global {
         properties?: Record<string, string>;
       }) => void;
       trackPageView: (pageView: {
-        contentType?: string;
-        virtualPageview?: boolean;
+        content_type?: string;
+        virtual_pageview?: boolean;
         properties?: Record<string, string>;
       }) => void;
       setConsent: (consent: boolean) => void;

@@ -1,11 +1,11 @@
 import type { Context } from "hono";
 
 import { collectCommonAnalyticsData } from "../lib";
-import type { EventData } from "../types";
+import type { AnalyticsFullEventData, EventData } from "../types";
 import { parseExperimentAssignments } from "../utils";
 
 export async function handleEvent(c: Context, eventData: EventData) {
-  const isValidEventData = eventData.s && eventData.eventName;
+  const isValidEventData = eventData.s && eventData.event_name;
   if (!isValidEventData) {
     return {
       success: false,
@@ -13,24 +13,13 @@ export async function handleEvent(c: Context, eventData: EventData) {
     };
   }
 
-  const queryParams = eventData.queryParams || {};
-  queryParams.s = eventData.siteId;
+  const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, eventData, false);
 
-  const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, queryParams, false);
+  const experimentAssignments = parseExperimentAssignments([], eventData.exp);
 
-  const experimentAssignments = parseExperimentAssignments(eventData.experiments, eventData.exp);
-
-  const fullEventData = {
+  const fullEventData: AnalyticsFullEventData = {
     ...analyticsData,
-    event_data: {
-      ...analyticsData.event_data,
-      event_name: eventData.eventName,
-      event_category: eventData.eventCategory || 'interaction',
-      event_label: eventData.eventLabel || "",
-      event_value: eventData.eventValue || 0,
-    },
     experiment_assignments: experimentAssignments,
-    properties: eventData.properties || {},
     data_type: "event",
   };
 

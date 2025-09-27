@@ -1,8 +1,12 @@
 import type { Context } from "hono";
 
-import { handleCacheHeaders, getBounceValue, extractDeviceInfo, parseScreenDimensions } from "../utils";
+import { handleCacheHeaders, hasUserBounced, extractDeviceInfo, parseScreenDimensions } from "../utils";
+import type { AnalyticsEventData, BatchEventData, EventData } from "../types/data";
 
-export function collectCommonAnalyticsData(c: Context, queryParams: Record<string, string>, isPageView = true) {
+export function collectCommonAnalyticsData(c: Context, eventData: EventData | BatchEventData, isPageView = true): {
+  analyticsData: AnalyticsEventData;
+  nextLastModifiedDate: Date | undefined;
+} {
   const { userAgent } = c.req.header();
   const ifModifiedSince = c.req.header('if-modified-since');
   const ip = c.req.raw.headers.get("CF-Connecting-IP") || "unknown";
@@ -24,11 +28,16 @@ export function collectCommonAnalyticsData(c: Context, queryParams: Record<strin
     user_id: userId = "",
     p: pagePath = "",
     ref: referrer = referer || "",
-  } = queryParams;
+    event_name: eventName = "",
+    event_category: eventCategory = "interaction",
+    event_label: eventLabel = "",
+    event_value: eventValue = 0,
+    properties = {},
+  } = eventData;
 
   let hits = 0;
   let isVisit = false;
-  let bounceValue = 0;
+  let isBounce = false;
   let nextLastModifiedDate: Date | undefined;
 
   if (isPageView) {
@@ -37,10 +46,10 @@ export function collectCommonAnalyticsData(c: Context, queryParams: Record<strin
     nextLastModifiedDate = cacheResult.nextLastModifiedDate;
 
     isVisit = hits === 1;
-    bounceValue = getBounceValue(hits);
+    isBounce = hasUserBounced(hits);
   }
 
-  const { browser, os, device } = extractDeviceInfo(userAgent);
+  const { browser, os, device, user_agent } = extractDeviceInfo(userAgent);
   const parsedScreenDimensions = parseScreenDimensions(screenDimensions);
   const parsedViewport = parseScreenDimensions(viewportDimensions);
   const currentTimestamp = new Date().toISOString();
@@ -53,12 +62,16 @@ export function collectCommonAnalyticsData(c: Context, queryParams: Record<strin
       user_id: userId || `user${Math.floor(Math.random() * 1000)}`,
       hits,
       new_visitor: isVisit ? 1 : 0,
-      bounce: bounceValue,
+      bounce: isBounce ? 1 : 0,
     },
     event_data: {
       event_id: Math.floor(Math.random() * 1000),
       version_tag: versionTag,
       content_type: contentType,
+      event_name: eventName,
+      event_category: eventCategory,
+      event_label: eventLabel,
+      event_value: eventValue,
     },
     app_data: {
       app_name: appName,
@@ -70,7 +83,7 @@ export function collectCommonAnalyticsData(c: Context, queryParams: Record<strin
       browser,
       os,
       device,
-      userAgent,
+      user_agent,
       screen: parsedScreenDimensions,
       viewport: parsedViewport,
     },
@@ -80,7 +93,7 @@ export function collectCommonAnalyticsData(c: Context, queryParams: Record<strin
       path: pagePath || path,
     },
     ip,
-    raw_query_params: queryParams,
+    properties: properties,
   };
 
   return { analyticsData, nextLastModifiedDate };

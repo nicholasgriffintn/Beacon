@@ -1,0 +1,19 @@
+{
+  "s": "beacon-docs",
+  "ts": "1758987437056",
+  "vtag": "1.0.0",
+  "r": "1800x1169x0x44",
+  "re": "978x483",
+  "lng": "en-GB",
+  "library_version": "1.0.0",
+  "app_name": "Beacon",
+  "app_type": "web",
+  "user_id": "506cab40-cf84-4bfe-814a-45476fa0ac10",
+  "p": "/",
+  "ref": "http://localhost:5173/",
+  "event_name": "performance",
+  "event_category": "page_load",
+  "event_label": "total_time",
+  "event_value": 159,
+  "properties": {}
+}

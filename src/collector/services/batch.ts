@@ -1,10 +1,10 @@
 import type { Context } from "hono";
 
-import type { EventData } from "../types";
+import type { BatchEventData } from "../types";
 import { collectCommonAnalyticsData } from "../lib";
 import { parseExperimentAssignments } from "../utils";
 
-export async  function handleBatch(c: Context, batchData: EventData) {
+export async  function handleBatch(c: Context, batchData: BatchEventData) {
   const isValidBatchData = batchData.s && Array.isArray(batchData.events) && batchData.events.length > 0;
   if (!isValidBatchData) {
     console.error("Invalid batch data", batchData);
@@ -15,9 +15,7 @@ export async  function handleBatch(c: Context, batchData: EventData) {
     };
   }
 
-  const commonParams = batchData.commonParams || {};
-
-  const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, commonParams, false);
+  const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, batchData, false);
 
   if (!batchData.events) {
     console.error("Invalid batch data", batchData);
@@ -28,21 +26,23 @@ export async  function handleBatch(c: Context, batchData: EventData) {
     };
   }
 
-  const experimentAssignments = parseExperimentAssignments(batchData.experiments, batchData.exp);
+  const experimentAssignments = parseExperimentAssignments([], batchData.exp);
 
   const processedEvents = batchData.events.map((event) => {
     if (event.type === 'pageview') {
       return {
         ...analyticsData,
         event_data: {
+          ...analyticsData.event_data,
           event_type: 'pageview',
-          content_type: event.contentType || 'page',
-          virtual_pageview: event.virtualPageview || false,
+          content_type: event.content_type || 'page',
+          virtual_pageview: event.virtual_pageview || false,
         },
         page: {
-          path: event.path || commonParams.p || '',
-          title: event.title || commonParams.title || '',
-          language: event.language || commonParams.lng || '',
+          ...analyticsData.page,
+          path: event.p || '',
+          title: event.title || '',
+          language: event.lng || '',
         },
         experiment_assignments: experimentAssignments,
         properties: event.properties || {},
@@ -54,12 +54,13 @@ export async  function handleBatch(c: Context, batchData: EventData) {
       return {
         ...analyticsData,
         event_data: {
+          ...analyticsData.event_data,
           event_type: 'custom',
-          event_name: event.eventName,
-          event_category: event.eventCategory || 'interaction',
-          event_label: event.eventLabel || '',
-          event_value: event.eventValue || 0,
-          non_interaction: event.nonInteraction || false,
+          event_name: event.event_name,
+          event_category: event.event_category || 'interaction',
+          event_label: event.event_label || '',
+          event_value: event.event_value || 0,
+          non_interaction: event.non_interaction || false,
         },
         experiment_assignments: experimentAssignments,
         properties: event.properties || {},
@@ -70,6 +71,7 @@ export async  function handleBatch(c: Context, batchData: EventData) {
     return {
       ...analyticsData,
       event_data: {
+        ...analyticsData.event_data,
         event_type: 'unknown',
       },
       experiment_assignments: experimentAssignments,
