@@ -7,7 +7,7 @@ export function useTrackEvent() {
       category: string;
       label?: string;
       value?: number | string;
-      nonInteraction?: boolean;
+      non_interaction?: boolean;
       properties?: Record<string, string>;
     }) => {
       if (typeof window === "undefined") {

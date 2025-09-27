@@ -41,7 +41,7 @@ declare global {
         category: string;
         label?: string;
         value?: number | string;
-        nonInteraction?: boolean;
+        non_interaction?: boolean;
         properties?: Record<string, string>;
       }) => void;
       trackPageView: (pageView: {
