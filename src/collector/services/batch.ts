@@ -81,7 +81,16 @@ export async  function handleBatch(c: Context, batchData: BatchEventData) {
     };
   });
 
-  await c.env.ANALYTICS_PIPELINE.send(processedEvents);
+  try {
+    await c.env.ANALYTICS_PIPELINE.send(processedEvents);
+  } catch (error) {
+    console.error("Error sending events", error);
+    return {
+      success: false,
+      processed: 0,
+      nextLastModifiedDate
+    };
+  }
 
   return {
     success: true,

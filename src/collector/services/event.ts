@@ -24,10 +24,20 @@ export async function handleEvent(c: Context, eventData: EventData) {
     data_type: "event",
   };
 
-  await c.env.ANALYTICS_PIPELINE.send([fullEventData]);
+  try {
+    await c.env.ANALYTICS_PIPELINE.send([fullEventData]);
+  } catch (error) {
+    console.error("Error sending events", error);
+    return {
+      success: false,
+      processed: 0,
+      nextLastModifiedDate
+    };
+  }
 
   return {
     success: true,
+    processed: 1,
     nextLastModifiedDate
   };
 }
