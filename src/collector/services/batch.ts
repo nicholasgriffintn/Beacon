@@ -36,6 +36,9 @@ export async  function handleBatch(c: Context, batchData: BatchEventData) {
         event_data: {
           ...analyticsData.event_data,
           event_type: 'pageview',
+          event_name: event.event_name || 'unknown_event',
+          event_category: event.event_category || 'general',
+          event_label: event.event_label || event.event_name || 'page_view',
           content_type: event.content_type || 'page',
           virtual_pageview: event.virtual_pageview || false,
         },
@@ -57,6 +60,9 @@ export async  function handleBatch(c: Context, batchData: BatchEventData) {
         event_data: {
           ...analyticsData.event_data,
           event_type: 'custom',
+          event_name: event.event_name || 'unknown_event',
+          event_category: event.event_category || 'general',
+          event_label: event.event_label || event.event_name || 'event',
           event_value: event.event_value || 0,
           non_interaction: event.non_interaction || false,
         },
@@ -71,6 +77,9 @@ export async  function handleBatch(c: Context, batchData: BatchEventData) {
       event_data: {
         ...analyticsData.event_data,
         event_type: 'unknown',
+        event_name: event.event_name || 'unknown_event',
+        event_category: event.event_category || 'general',
+        event_label: event.event_label || event.event_name || 'unknown_event',
         event_value: event.event_value || 0,
       },
       experiment_assignments: compactedAssignments,

@@ -9,10 +9,12 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
 } {
   const userAgent = c.req.header("user-agent");
   const ifModifiedSince = c.req.header('if-modified-since');
-  const ip = c.req.raw.headers.get("CF-Connecting-IP") || "unknown";
-  const referer = c.req.header("referer");
-  const url = c.req.url;
-  const url_path = new URL(c.req.url).pathname;
+  const ip = c.req.raw.headers.get('X-Forwarded-For') || 'unknown';
+  const refererUrl = c.req.header("referer");
+  const url = refererUrl;
+  const url_path = refererUrl
+    ? new URL(refererUrl).pathname
+    : new URL(c.req.url).pathname;
 
   const {
     s: siteId = "NA",
@@ -43,14 +45,12 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
 
   let eventLabel = rawEventLabel;
   if (eventLabel === "NA" || !eventLabel) {
-    if (url_path) {
-      eventLabel = url_path;
+    if (eventName !== 'unknown_event') {
+      eventLabel = eventName;
     } else if (pagePath) {
       eventLabel = pagePath;
-    } else if (eventName !== "unknown_event") {
-      eventLabel = eventName;
     } else {
-      eventLabel = "event";
+      eventLabel = 'event';
     }
   }
 
