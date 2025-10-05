@@ -12,7 +12,7 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
   const ip = c.req.raw.headers.get("CF-Connecting-IP") || "unknown";
   const referer = c.req.header("referer");
   const url = c.req.url;
-  const path = new URL(c.req.url).pathname;
+  const url_path = new URL(c.req.url).pathname;
 
   const {
     s: siteId = "NA",
@@ -28,15 +28,31 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
     user_id: userId = "NA",
     p: pagePath = "",
     ref: referrer = referer || "NA",
-    event_name: eventName = "NA",
-    event_category: eventCategory = "interaction",
-    event_label: eventLabel = "NA",
+    event_name: rawEventName = "NA",
+    event_category: rawEventCategory = "interaction",
+    event_label: rawEventLabel = "NA",
     event_value: eventValue = 0,
     non_interaction: nonInteraction = false,
     virtual_pageview: virtualPageview = false,
     event_type: eventType = "NA",
     properties = {},
   } = eventData;
+
+  const eventName = rawEventName !== "NA" ? rawEventName : "unknown_event";
+  const eventCategory = rawEventCategory !== "interaction" ? rawEventCategory : "general";
+
+  let eventLabel = rawEventLabel;
+  if (eventLabel === "NA" || !eventLabel) {
+    if (url_path) {
+      eventLabel = url_path;
+    } else if (pagePath) {
+      eventLabel = pagePath;
+    } else if (eventName !== "unknown_event") {
+      eventLabel = eventName;
+    } else {
+      eventLabel = "event";
+    }
+  }
 
   let hits = 0;
   let isVisit = false;
@@ -96,7 +112,7 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
     referrer: referrer || "NA",
     page: {
       url,
-      path: pagePath || path,
+      path: pagePath || url_path,
     },
     ip,
     properties: properties,
