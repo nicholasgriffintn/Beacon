@@ -201,10 +201,12 @@ export class ExperimentService {
     return await this.getExperiment(id);
   }
 
-  async assignVariant(experimentId: string, userContext: UserContext): Promise<VariantAssignment | null> {
+  async assignVariant(experimentId: string, userContext: UserContext): Promise<VariantAssignment | { message: string }> {
     const experiment = await this.getExperiment(experimentId);
     if (!experiment || experiment.status !== 'running') {
-      return null;
+      return {
+        message: 'Experiment not found or not running'
+      };
     }
 
     const existingAssignment = await this.db
@@ -214,16 +216,27 @@ export class ExperimentService {
 
     if (existingAssignment) {
       const variant = experiment.variants.find(v => v.id === existingAssignment.variant_id);
-      return variant ? {
+
+      if (!variant) {
+        return {
+          message: "No existing variant found",
+        };
+      }
+
+      return {
         experiment_id: experimentId,
         variant_id: variant.id,
         variant_name: variant.name,
         config: variant.config
-      } : null;
+      };
     }
 
     const variant = this.determineVariant(experiment, userContext);
-    if (!variant) return null;
+    if (!variant) {
+      return {
+        message: "No variant found",
+      };
+    }
 
     await this.db
       .prepare(

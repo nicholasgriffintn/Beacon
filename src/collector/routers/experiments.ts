@@ -91,7 +91,7 @@ experimentsRouter.post("/:id/assign", async (c: Context) => {
     const assignment = await experimentService.assignVariant(c.req.param("id"), userContext);
     
     if (!assignment) {
-      return c.json({ error: "No variant assigned" }, 404);
+      return c.json({ error: "No assignment made" }, 500);
     }
     
     return c.json(assignment);
