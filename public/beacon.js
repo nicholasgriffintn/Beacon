@@ -248,6 +248,10 @@
 
     const eventParams = {
       ...getCommonParams(),
+      event_name: 'pageview',
+      event_category: 'page',
+      event_label: 'pageview',
+      event_value: 1,
       type: 'pageview',
       path: window.location.pathname,
       title: document.title,

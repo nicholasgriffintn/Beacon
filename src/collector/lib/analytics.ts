@@ -7,34 +7,34 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
   analyticsData: AnalyticsEventData;
   nextLastModifiedDate: Date | undefined;
 } {
-  const { userAgent } = c.req.header();
+  const userAgent = c.req.header("user-agent");
   const ifModifiedSince = c.req.header('if-modified-since');
   const ip = c.req.raw.headers.get("CF-Connecting-IP") || "unknown";
-  const { referer } = c.req.header();
+  const referer = c.req.header("referer");
   const url = c.req.url;
   const path = new URL(c.req.url).pathname;
 
   const {
-    s: siteId = "",
-    ts: timestamp = "",
-    vtag: versionTag = "",
-    r: screenDimensions = "",
-    re: viewportDimensions = "",
-    lng: language = "",
-    content_type: contentType = "",
-    library_version: libraryVersion = "",
-    app_name: appName = "",
-    app_type: appType = "",
-    user_id: userId = "",
+    s: siteId = "NA",
+    ts: timestamp = "NA",
+    vtag: versionTag = "NA",
+    r: screenDimensions = "NA",
+    re: viewportDimensions = "NA",
+    lng: language = "NA",
+    content_type: contentType = "NA",
+    library_version: libraryVersion = "NA",
+    app_name: appName = "NA",
+    app_type: appType = "NA",
+    user_id: userId = "NA",
     p: pagePath = "",
-    ref: referrer = referer || "",
-    event_name: eventName = "",
+    ref: referrer = referer || "NA",
+    event_name: eventName = "NA",
     event_category: eventCategory = "interaction",
-    event_label: eventLabel = "",
+    event_label: eventLabel = "NA",
     event_value: eventValue = 0,
     non_interaction: nonInteraction = false,
     virtual_pageview: virtualPageview = false,
-    event_type: eventType = "",
+    event_type: eventType = "NA",
     properties = {},
   } = eventData;
 
