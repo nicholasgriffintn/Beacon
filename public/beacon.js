@@ -248,16 +248,12 @@
 
     const eventParams = {
       ...getCommonParams(),
-      event_name: 'pageview',
-      event_category: 'page',
-      event_label: 'pageview',
-      event_value: 1,
       type: 'pageview',
       path: window.location.pathname,
       title: document.title,
       content_type,
       virtual_page_view,
-      properties
+      properties,
     };
 
     if (Beacon.config.directPageViews) {
