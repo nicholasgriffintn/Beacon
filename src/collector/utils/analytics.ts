@@ -78,3 +78,11 @@ export function parseScreenDimensions(dimensionStr: string): ScreenDimensions | 
     offset_y: parts.length > 3 ? (Number.parseInt(parts[3], 10) || 0) : 0,
   };
 }
+
+export function formatScreenDimensions(dimensions: ScreenDimensions | undefined): string {
+  if (!dimensions) {
+    return "0x0x0x0";
+  }
+
+  return `${dimensions.width}x${dimensions.height}x${dimensions.offset_x}x${dimensions.offset_y}`;
+}

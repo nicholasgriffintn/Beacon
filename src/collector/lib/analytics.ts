@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 
-import { handleCacheHeaders, hasUserBounced, extractDeviceInfo, parseScreenDimensions } from "../utils";
+import { handleCacheHeaders, hasUserBounced, extractDeviceInfo, parseScreenDimensions, formatScreenDimensions } from "../utils";
 import type { AnalyticsEventData, BatchEventData, EventData } from "../types/data";
 
 export function collectCommonAnalyticsData(c: Context, eventData: EventData | BatchEventData, isPageView = true): {
@@ -106,8 +106,8 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
       os,
       device,
       user_agent,
-      screen: parsedScreenDimensions,
-      viewport: parsedViewport,
+      screen: formatScreenDimensions(parsedScreenDimensions),
+      viewport: formatScreenDimensions(parsedViewport),
     },
     referrer: referrer || "NA",
     page: {

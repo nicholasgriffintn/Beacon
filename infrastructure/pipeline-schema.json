@@ -18,27 +18,27 @@
         {
           "name": "client_timestamp",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "user_id",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "hits",
-          "type": "int32",
-          "required": true
+          "type": "int64",
+          "required": false
         },
         {
           "name": "new_visitor",
           "type": "bool",
-          "required": true
+          "required": false
         },
         {
           "name": "bounce",
           "type": "bool",
-          "required": true
+          "required": false
         }
       ]
     },
@@ -55,47 +55,47 @@
         {
           "name": "version_tag",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "content_type",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "event_name",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "event_category",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "event_label",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "event_value",
-          "type": "int32",
-          "required": true
+          "type": "int64",
+          "required": false
         },
         {
           "name": "non_interaction",
           "type": "bool",
-          "required": true
+          "required": false
         },
         {
           "name": "virtual_pageview",
           "type": "bool",
-          "required": true
+          "required": false
         },
         {
           "name": "event_type",
           "type": "string",
-          "required": true
+          "required": false
         }
       ]
     },
@@ -107,22 +107,22 @@
         {
           "name": "app_name",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "app_type",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "library_version",
           "type": "string",
-          "required": true
+          "required": false
         },
         {
           "name": "language",
           "type": "string",
-          "required": true
+          "required": false
         }
       ]
     },
@@ -153,57 +153,13 @@
         },
         {
           "name": "screen",
-          "type": "struct",
-          "required": false,
-          "fields": [
-            {
-              "name": "width",
-              "type": "string",
-              "required": false
-            },
-            {
-              "name": "height",
-              "type": "string",
-              "required": false
-            },
-            {
-              "name": "offset_x",
-              "type": "string",
-              "required": false
-            },
-            {
-              "name": "offset_y",
-              "type": "string",
-              "required": false
-            }
-          ]
+          "type": "string",
+          "required": false
         },
         {
           "name": "viewport",
-          "type": "struct",
-          "required": false,
-          "fields": [
-            {
-              "name": "width",
-              "type": "string",
-              "required": false
-            },
-            {
-              "name": "height",
-              "type": "string",
-              "required": false
-            },
-            {
-              "name": "offset_x",
-              "type": "string",
-              "required": false
-            },
-            {
-              "name": "offset_y",
-              "type": "string",
-              "required": false
-            }
-          ]
+          "type": "string",
+          "required": false
         }
       ]
     },

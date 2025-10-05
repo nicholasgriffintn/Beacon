@@ -17,7 +17,7 @@
 	},
 	"pipelines": [
     {
-      "pipeline": "7fe9de0b14a14d6c9a5d81cae1f64a6f",
+      "pipeline": "fb8ad0e8b07b437ead3e5f6e46ac58cd",
       "binding": "ANALYTICS_PIPELINE"
     }
   ],
