@@ -210,7 +210,7 @@ export class ExperimentResultsService {
       return null;
     }
 
-    const variants = await this.getVariantResults(experiment);
+    const variants = await this.getVariantResults(experiment, await this.hasEventMirror());
     const results: ExperimentResults = {
       experiment_id: experiment.id,
       experiment_name: experiment.name,
@@ -308,7 +308,15 @@ export class ExperimentResultsService {
     };
   }
 
-  private async getVariantResults(experiment: Experiment): Promise<VariantResult[]> {
+  private async hasEventMirror(): Promise<boolean> {
+    const table = await this.db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'experiment_events'")
+      .first<{ name: string }>();
+
+    return table?.name === "experiment_events";
+  }
+
+  private async getVariantResults(experiment: Experiment, hasEventMirror: boolean): Promise<VariantResult[]> {
     const allocationPercentages = new Map(
       getVariantAllocationRanges(experiment.variants).map(range => [
         range.variant.id,
@@ -326,37 +334,41 @@ export class ExperimentResultsService {
         .bind(experiment.id, variant.id)
         .first<{ total_users: number }>();
 
-      const exposureRow = await this.db
-        .prepare(`
-          SELECT COUNT(DISTINCT user_id) as exposed_users
-          FROM experiment_events
-          WHERE experiment_id = ? AND variant_id = ? AND event_type = 'exposure'
-        `)
-        .bind(experiment.id, variant.id)
-        .first<{ exposed_users: number }>();
-
-      const conversionRow = await this.db
-        .prepare(`
-          SELECT
-            COUNT(*) as conversion_count,
-            COUNT(DISTINCT user_id) as converted_users,
-            COALESCE(SUM(value), 0) as conversion_value
-          FROM (
-            SELECT
-              COALESCE(conversion_id, id) as conversion_key,
-              MIN(user_id) as user_id,
-              MAX(value) as value
+      const exposureRow = hasEventMirror
+        ? await this.db
+          .prepare(`
+            SELECT COUNT(DISTINCT user_id) as exposed_users
             FROM experiment_events
-            WHERE experiment_id = ? AND variant_id = ? AND event_type = 'conversion'
-            GROUP BY COALESCE(conversion_id, id)
-          )
-        `)
-        .bind(experiment.id, variant.id)
-        .first<{
-          conversion_count: number;
-          converted_users: number;
-          conversion_value: number;
-        }>();
+            WHERE experiment_id = ? AND variant_id = ? AND event_type = 'exposure'
+          `)
+          .bind(experiment.id, variant.id)
+          .first<{ exposed_users: number }>()
+        : null;
+
+      const conversionRow = hasEventMirror
+        ? await this.db
+          .prepare(`
+            SELECT
+              COUNT(*) as conversion_count,
+              COUNT(DISTINCT user_id) as converted_users,
+              COALESCE(SUM(value), 0) as conversion_value
+            FROM (
+              SELECT
+                COALESCE(conversion_id, id) as conversion_key,
+                MIN(user_id) as user_id,
+                MAX(value) as value
+              FROM experiment_events
+              WHERE experiment_id = ? AND variant_id = ? AND event_type = 'conversion'
+              GROUP BY COALESCE(conversion_id, id)
+            )
+          `)
+          .bind(experiment.id, variant.id)
+          .first<{
+            conversion_count: number;
+            converted_users: number;
+            conversion_value: number;
+          }>()
+        : null;
 
       const totalUsers = Number(assignmentRow?.total_users || 0);
       const conversionCount = Number(conversionRow?.conversion_count || 0);
