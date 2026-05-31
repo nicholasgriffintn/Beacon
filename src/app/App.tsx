@@ -6,54 +6,85 @@ import { ProcessingModeTester } from "./components/ProcessingModeTester";
 import { TestingControls } from "./components/TestingControls";
 
 const codeExamples = {
-  browser: `await BeaconOpenFeature.init({
+  analytics: `Beacon.init({
   endpoint: "https://beacon.nicholasgriffin.dev",
-  cdnEndpoint: "https://beacon-cdn.nicholasgriffin.dev",
-  siteId: "docs",
+  siteId: "storefront",
+  trackPageViews: true,
+  trackClicks: true,
+  trackUserTimings: true,
+  directEvents: false,
 });
 
-const theme = await BeaconOpenFeature.getObjectDetails(
-  "homepage_theme",
-  { palette: "classic" }
-);`,
-  server: `POST /api/openfeature/v1/evaluate
-{
-  "flagKey": "checkout_flow",
-  "defaultValue": "control",
-  "flagValueType": "string",
-  "context": {
-    "targetingKey": "user_123",
-    "siteId": "storefront"
-  }
-}`,
-  track: `BeaconOpenFeature.track("signup_click", {}, {
-  flagKey: "homepage_theme",
-  conversionId: "signup_click",
-  value: 1
+Beacon.trackEvent({
+  name: "signup_click",
+  category: "conversion",
+  label: "pricing_hero",
+  value: 1,
 });`,
+  delivery: `Beacon.init({
+  endpoint: "https://beacon.nicholasgriffin.dev",
+  siteId: "checkout",
+  directPageViews: true,
+  directEvents: false,
+  batchSize: 10,
+  batchTimeout: 5000,
+});
+
+Beacon.trackPageView({
+  content_type: "checkout",
+  properties: { plan: "pro" },
+});`,
+  flags: `await BeaconOpenFeature.init({
+  endpoint: "https://beacon.nicholasgriffin.dev",
+  cdnEndpoint: "https://beacon-cdn.nicholasgriffin.dev",
+  siteId: "storefront",
+});
+
+const details = await BeaconOpenFeature.getObjectDetails(
+  "checkout_flow",
+  { layout: "control" }
+);`,
 };
 
 const workflowSteps = [
   {
-    title: "Create a flag",
-    detail: "Define the flag key, default value, variations, and site scope.",
+    title: "Capture events",
+    detail: "Collect page views, clicks, timings, and custom product events from every registered service.",
   },
   {
-    title: "Attach an experiment",
-    detail: "Run a traffic allocation layer inside the flag without changing client code.",
+    title: "Control delivery",
+    detail: "Choose batched or direct ingestion for each workload and keep noisy clients behind rate limits.",
   },
   {
-    title: "Await CDN publishing",
-    detail: "Your configuration should be published globally within a few seconds, automatically.",
+    title: "Read behaviour",
+    detail: "Use the same event stream for traffic, conversion, interaction, and performance views.",
   },
   {
-    title: "Measure outcomes",
-    detail: "Join exposure and conversion events by flag, experiment, variant, and user.",
+    title: "Ship decisions",
+    detail: "Attach flags and experiments when you need controlled rollout and outcome measurement.",
+  },
+];
+
+const analyticsCards = [
+  {
+    label: "Event analytics",
+    value: "Page views, clicks, custom events",
+    detail: "Track behaviour across your services without making experimentation mandatory.",
+  },
+  {
+    label: "Processing modes",
+    value: "Batch or direct",
+    detail: "Queue routine telemetry and send critical conversion events immediately.",
+  },
+  {
+    label: "Decision layer",
+    value: "Flags and experiments",
+    detail: "Use analytics data to evaluate product changes when you need controlled rollout.",
   },
 ];
 
 export default function App() {
-  const [selectedExample, setSelectedExample] = useState<keyof typeof codeExamples>("browser");
+  const [selectedExample, setSelectedExample] = useState<keyof typeof codeExamples>("analytics");
 
   return (
     <div className="beacon-app-shell">
@@ -76,6 +107,7 @@ export default function App() {
           </span>
         </a>
         <nav className="site-nav__links" aria-label="Sections">
+          <a href="#analytics">Analytics</a>
           <a href="#workflow">Workflow</a>
           <a href="#developers">Developers</a>
         </nav>
@@ -84,18 +116,19 @@ export default function App() {
       <main>
         <section className="hero-section">
           <div className="hero-copy">
-            <p className="eyebrow">Feature flags, experiments, analytics</p>
-            <h1>Decide with observable flags.</h1>
+            <p className="eyebrow">Analytics, events, product decisions</p>
+            <h1>Understand your services. Ship better decisions.</h1>
             <p className="hero-lede">
-              Beacon is a platform for feature experimentation and analytics built on top
-              of the OpenFeature standard and Cloudflare's global network.
+              Beacon collects page views, clicks, user timings, custom events, and
+              conversion signals across your services.
             </p>
             <p className="hero-lede">
-              Run experiments and flags with confidence using real-time data and a reliable
-              CDN delivery mechanism.
+              The same event stream powers analytics dashboards, feature rollouts,
+              experiments, and result summaries without splitting product data across tools.
             </p>
             <div className="hero-actions">
-              <a className="btn btn-primary" href="#developers">View setup</a>
+              <a className="btn btn-primary" href="#developers">View analytics setup</a>
+              <a className="btn btn-secondary" href="#workflow">See workflow</a>
             </div>
           </div>
 
@@ -109,37 +142,39 @@ export default function App() {
               <div className="preview-grid">
                 <aside className="preview-sidebar">
                   <strong>Beacon</strong>
-                  <span className="preview-sidebar__item active">Flags</span>
+                  <span className="preview-sidebar__item active">Analytics</span>
+                  <span className="preview-sidebar__item">Events</span>
                   <span className="preview-sidebar__item">Results</span>
-                  <span className="preview-sidebar__item">CDN</span>
+                  <span className="preview-sidebar__item">Flags</span>
                 </aside>
                 <section className="preview-panel">
                   <div className="preview-panel__header">
                     <div>
-                      <p className="eyebrow">Flag</p>
-                      <h2>homepage_theme</h2>
+                      <p className="eyebrow">Analytics</p>
+                      <h2>service_overview</h2>
                     </div>
-                    <span className="status-pill">Running</span>
+                    <span className="status-pill">Live</span>
                   </div>
                   <div className="preview-band">
-                    <span>Experiment traffic</span>
-                    <strong>72%</strong>
-                    <div className="preview-meter"><span style={{ width: "72%" }} /></div>
+                    <span>Events today</span>
+                    <strong>184,092</strong>
+                    <div className="preview-meter"><span style={{ width: "68%" }} /></div>
                   </div>
                   <div className="variant-list">
                     <div>
-                      <span>Control</span>
-                      <strong>48.8%</strong>
+                      <span>Page views</span>
+                      <strong>126k</strong>
                     </div>
                     <div>
-                      <span>Treatment</span>
-                      <strong>51.2%</strong>
+                      <span>Conversions</span>
+                      <strong>4.8%</strong>
                     </div>
                   </div>
-                  <pre>{`flagMetadata: {
-  source: "feature_flag",
-  experiment_id: "exp_theme",
-  variant_name: "Treatment"
+                  <pre>{`event: {
+  name: "signup_click",
+  category: "conversion",
+  source: "pricing",
+  value: 1
 }`}</pre>
                 </section>
               </div>
@@ -147,10 +182,20 @@ export default function App() {
           </div>
         </section>
 
+        <section id="analytics" className="metric-strip" aria-label="Analytics capabilities">
+          {analyticsCards.map((card) => (
+            <article key={card.label}>
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <p>{card.detail}</p>
+            </article>
+          ))}
+        </section>
+
         <section id="workflow" className="workflow-section">
           <div className="section-heading">
             <p className="eyebrow">Operational flow</p>
-            <h2>From flag definition to result summary.</h2>
+            <h2>From event collection to product decision.</h2>
           </div>
           <div className="workflow-grid">
             {workflowSteps.map((step, index) => (
@@ -167,16 +212,16 @@ export default function App() {
           <div>
             <div className="section-heading">
               <p className="eyebrow">Developer setup</p>
-              <h2>Configure Beacon across clients in a few steps.</h2>
+              <h2>Install analytics first. Add flags when decisions need rollout control.</h2>
             </div>
             <p>
-              Browser clients fetch one standards-compatible config from the CDN and resolve locally.
-              Server clients can use the evaluate endpoint with the same flag key and context.
+              The analytics client records page views and custom events immediately. Flag
+              clients can then reuse the same site identity and conversion stream for experiment results.
             </p>
             <div className="principle-list">
-              <span>Canonical flag keys</span>
-              <span>Nested experiment metadata</span>
-              <span>Exposure and conversion joins</span>
+              <span>Automatic page views</span>
+              <span>Custom event tracking</span>
+              <span>Conversion joins</span>
             </div>
           </div>
 
@@ -199,8 +244,10 @@ export default function App() {
       </main>
 
       <footer className="site-footer">
-        <span>Beacon</span>
-        <a href="https://bitwobbly.com/status/beacon">Track application status</a>
+        <div className="site-footer__inner">
+          <span>Beacon</span>
+          <a href="https://bitwobbly.com/status/beacon">Track application status</a>
+        </div>
       </footer>
 
       <ProcessingModeTester />

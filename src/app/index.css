@@ -532,13 +532,18 @@ h3 {
 }
 
 .site-footer {
-	align-items: center;
 	border-top: 1px solid var(--line);
+	max-width: 100%;
+}
+
+.site-footer__inner {
+	align-items: center;
 	display: flex;
 	justify-content: space-between;
 	margin: 0 auto;
-	max-width: 1280px;
+	max-width: 1440px;
 	padding: 1.25rem clamp(1rem, 4vw, 3rem) 2rem;
+	width: 100%;
 }
 
 .site-footer span {
