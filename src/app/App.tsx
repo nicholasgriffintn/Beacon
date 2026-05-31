@@ -7,8 +7,8 @@ import { TestingControls } from "./components/TestingControls";
 
 const codeExamples = {
   browser: `await BeaconOpenFeature.init({
-  endpoint: "https://beacon.example.com",
-  cdnEndpoint: "https://beacon-cdn.example.com",
+  endpoint: "https://beacon.nicholasgriffin.dev",
+  cdnEndpoint: "https://beacon-cdn.nicholasgriffin.dev",
   siteId: "docs",
 });
 
@@ -69,7 +69,7 @@ export default function App() {
 
       <header className="site-nav" aria-label="Primary">
         <a className="brand-mark" href="/">
-          <span className="brand-mark__glyph">B</span>
+          <img className="brand-mark__glyph" src="/favicon.svg" alt="" aria-hidden="true" />
           <span>
             <strong>Beacon</strong>
             <small>Analytics and feature experimentation</small>
