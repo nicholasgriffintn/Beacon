@@ -47,14 +47,14 @@ export function TestingControls() {
         onClick={toggleProcessingTester}
         className={`testing-controls__btn ${showProcessing ? 'active' : ''}`}
       >
-        📊 Tester
+        Tester
       </button>
       <button
         type="button"
         onClick={toggleExperimentTester}
         className={`testing-controls__btn ${showExperiments ? 'active' : ''}`}
       >
-        🧪 Experiments
+        Experiments
       </button>
     </div>
   );

@@ -1,47 +1,84 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h2>Admin Tools</h2>
+<section class="page-hero">
+    <div>
+        <h1>CDN and operations</h1>
+        <p>Publish the static definitions used by browser clients and verify the config shape before deployment.</p>
     </div>
-    <div class="card-body">
-        <h3>📦 CDN Publishing</h3>
-        <p>Publish definitions to CDN for client consumption:</p>
-        <br>
-        
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+</section>
+
+<section class="panel-grid">
+    <article class="card">
+        <div class="card-header">
+            <h3>Sites</h3>
+            </div>
+            <div class="card-body">
+            <p class="subtle">Publish active site configuration and domain allowlists.</p>
+            <br>
             <form method="post" action="/admin/publish/sites">
                 <button type="submit" class="btn">Publish Sites</button>
             </form>
+        </div>
+        </article>
 
+    <article class="card">
+        <div class="card-header">
+            <h3>Flags</h3>
+        </div>
+        <div class="card-body">
+            <p class="subtle">Publish flag definitions for internal inspection and management tools.</p>
+            <br>
             <form method="post" action="/admin/publish/flags">
                 <button type="submit" class="btn">Publish Flags</button>
             </form>
+        </div>
+        </article>
 
+    <article class="card">
+        <div class="card-header">
+            <h3>Client config</h3>
+        </div>
+        <div class="card-body">
+            <p class="subtle">Publish canonical flags with running experiments nested under each flag.</p>
+            <br>
             <form method="post" action="/admin/publish/openfeature">
-                <button type="submit" class="btn">Publish OpenFeature</button>
+                <button type="submit" class="btn">Publish Client Config</button>
             </form>
-            
+        </div>
+        </article>
+
+    <article class="card">
+        <div class="card-header">
+            <h3>Full refresh</h3>
+        </div>
+        <div class="card-body">
+            <p class="subtle">Publish sites, flags, and browser config together.</p>
+            <br>
             <form method="post" action="/admin/publish/all">
                 <button type="submit" class="btn btn-success">Publish All</button>
             </form>
         </div>
-        
-        <br><br>
-        
-        <div class="card">
-            <div class="card-body">
-                <h4>ℹ️ About CDN Publishing</h4>
-                <p>Publishing creates static JSON files that clients can fetch directly from the CDN instead of making API calls. This improves performance and reduces Worker invocations.</p>
-                <ul style="margin-left: 1rem; margin-top: 0.5rem;">
-                    <li><strong>Sites:</strong> Site configurations and domains</li>
-                    <li><strong>Flags:</strong> Enabled feature flag definitions and targeting rules</li>
-                    <li><strong>OpenFeature:</strong> Canonical flag config with running experiments nested under their flags</li>
-                    <li><strong>All:</strong> Experiments, sites, feature flags, and OpenFeature config</li>
-                </ul>
-            </div>
-        </div>
+    </article>
+    </section>
+
+<section class="guide-panel">
+    <div>
+        <h2>Publishing model</h2>
+        <p>
+            Browser clients resolve flags from the CDN document. Publish after changing flags
+            or nested experiments so clients receive the latest definitions.
+        </p>
     </div>
-</div>
+    <pre>{
+      "flags": [{
+        "flagKey": "homepage_theme",
+        "defaultValue": "control",
+        "experiment": {
+          "id": "exp_theme",
+          "trafficAllocation": 100
+        }
+      }]
+    }</pre>
+    </section>
 {% endblock %}

@@ -3,80 +3,582 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Beacon Admin Dashboard{% endblock %}</title>
+    <title>{% block title %}Beacon Admin{% endblock %}</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #333; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        
-        nav { background: #2563eb; color: white; padding: 1rem 0; margin-bottom: 2rem; }
-        nav .container { display: flex; justify-content: space-between; align-items: center; }
-        nav h1 { font-size: 1.5rem; }
-        nav ul { display: flex; list-style: none; gap: 1rem; }
-        nav a { color: white; text-decoration: none; padding: 0.5rem 1rem; border-radius: 4px; }
-        nav a:hover { background: rgba(255,255,255,0.1); }
-        
-        .card { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 1rem; }
-        .card-header { padding: 1rem; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
-        .card-body { padding: 1rem; }
-        
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #e5e7eb; }
-        th { background: #f9fafb; font-weight: 600; }
-        
-        .btn { display: inline-block; padding: 0.5rem 1rem; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; border: none; cursor: pointer; }
-        .btn:hover { background: #1d4ed8; }
-        .btn-secondary { background: #475569; }
-        .btn-secondary:hover { background: #334155; }
-        .btn-danger { background: #dc2626; }
-        .btn-danger:hover { background: #b91c1c; }
-        .btn-success { background: #16a34a; }
-        .btn-success:hover { background: #15803d; }
-        .btn-small { font-size: 0.75rem; padding: 0.25rem 0.5rem; }
-        
-        form { display: flex; flex-direction: column; gap: 1rem; max-width: 500px; }
+        :root {
+            --page: #f4efe6;
+            --surface: #fffdf8;
+            --surface-soft: #fbf4e9;
+            --ink: #161817;
+            --muted: #6b6258;
+            --line: #d8cab8;
+            --rail: #10201d;
+            --rail-soft: #182d28;
+            --accent: #008f83;
+            --accent-dark: #00796f;
+            --danger: #c2412d;
+            --success: #15966f;
+            --warn: #a56614;
+            --radius: 8px;
+            --shadow: 0 24px 80px rgba(36, 29, 19, 0.16);
+            --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            background:
+                radial-gradient(circle at 86% 5%, rgba(0, 143, 131, 0.16), transparent 30rem),
+                linear-gradient(120deg, #f7eddb 0%, #fffaf0 48%, #e8dcc9 100%);
+            color: var(--ink);
+            font-family: "Avenir Next", "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.5;
+            margin: 0;
+            min-width: 320px;
+        }
+
+        a { color: inherit; }
+
+        button,
+        input,
+        select,
+        textarea { font: inherit; }
+
+        code,
+        pre,
+        .code-input {
+            font-family: var(--mono);
+        }
+
+        h1,
+        h2,
+        h3,
+        h4,
+        p {
+            margin-top: 0;
+        }
+
+        h1 {
+            font-size: clamp(1.5rem, 1.9vw, 2rem);
+            line-height: 1.08;
+        }
+
+        h2 {
+            font-size: clamp(1.08rem, 1.25vw, 1.3rem);
+            line-height: 1.16;
+        }
+
+        h3 {
+            font-size: 1rem;
+            line-height: 1.2;
+        }
+
+        h4 {
+            font-size: 0.95rem;
+            line-height: 1.2;
+        }
+
+        .admin-shell {
+            display: grid;
+            grid-template-columns: 280px minmax(0, 1fr);
+            min-height: 100vh;
+        }
+
+        .admin-rail {
+            background: linear-gradient(180deg, var(--rail), #1e332d 58%, #14241f);
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fffaf0;
+            display: flex;
+            flex-direction: column;
+            padding: 1.25rem;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+        }
+
+        .rail-brand {
+            display: grid;
+            gap: 0.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .rail-brand strong {
+            font-size: 1.45rem;
+            letter-spacing: 0;
+        }
+
+        .rail-brand span {
+            color: rgba(255, 250, 240, 0.64);
+            font-size: 0.88rem;
+        }
+
+        .rail-nav {
+            display: grid;
+            gap: 0.45rem;
+        }
+
+        .rail-nav a {
+            border-radius: var(--radius);
+            color: rgba(255, 250, 240, 0.76);
+            font-weight: 700;
+            padding: 0.8rem 0.9rem;
+            text-decoration: none;
+        }
+
+        .rail-nav a:hover,
+        .rail-nav a.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: #ffffff;
+        }
+
+        .admin-main {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .topbar {
+            align-items: center;
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            padding: 0.95rem clamp(1rem, 4vw, 2rem) 0;
+        }
+
+        .topbar__meta {
+            color: var(--muted);
+            font-size: 0.9rem;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        .content {
+            flex: 1;
+            padding: 1rem clamp(1rem, 4vw, 2rem) 2.25rem;
+        }
+
+        .page-hero {
+            align-items: flex-start;
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .page-hero h1,
+        .page-hero h2 {
+            font-size: clamp(1.5rem, 1.9vw, 2rem);
+            line-height: 1.08;
+            margin: 0 0 0.35rem;
+        }
+
+        .page-hero p {
+            color: var(--muted);
+            font-size: 0.96rem;
+            margin: 0;
+            max-width: 44rem;
+        }
+
+        .page-hero .btn {
+            flex: 0 0 auto;
+            white-space: nowrap;
+        }
+
+        .card,
+        .flag-panel,
+        .result-panel {
+            background: rgba(255, 253, 248, 0.9);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            box-shadow: 0 1px 2px rgba(36, 29, 19, 0.06);
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .card-header,
+        .result-panel-header {
+            border-bottom: 1px solid var(--line);
+            padding: 0.85rem 1rem;
+        }
+
+        .card-header h2,
+        .card-header h3,
+        .result-panel-header h4 {
+            font-size: 1rem;
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        .card-body,
+        .result-panel-body {
+            padding: 1rem;
+        }
+
+        .panel-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        }
+
+        .metric-card {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 1rem;
+        }
+
+        .metric-card span,
+        .subtle,
+        small {
+            color: var(--muted);
+        }
+
+        .metric-card strong {
+            display: block;
+            font-size: clamp(1.1rem, 1.7vw, 1.35rem);
+            line-height: 1;
+            margin: 0.45rem 0;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border-bottom: 1px solid var(--line);
+            padding: 0.85rem;
+            text-align: left;
+            vertical-align: top;
+        }
+
+        th {
+            background: var(--surface-soft);
+            color: #4d453b;
+            font-size: 0.82rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .btn {
+            align-items: center;
+            background: var(--accent);
+            border: 1px solid var(--accent);
+            border-radius: var(--radius);
+            color: #ffffff;
+            cursor: pointer;
+            display: inline-flex;
+            font-weight: 800;
+            justify-content: center;
+            min-height: 42px;
+            padding: 0.65rem 0.9rem;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            background: var(--accent-dark);
+            border-color: var(--accent-dark);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border-color: var(--ink);
+            color: var(--ink);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(22, 24, 23, 0.08);
+            border-color: var(--ink);
+            color: var(--ink);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            border-color: var(--danger);
+        }
+
+        .btn-danger:hover {
+            background: #a93625;
+            border-color: #a93625;
+        }
+
+        .btn-success {
+            background: var(--success);
+            border-color: var(--success);
+        }
+
+        .btn-success:hover {
+            background: #0f7e5c;
+            border-color: #0f7e5c;
+        }
+
+        .btn-small {
+            font-size: 0.78rem;
+            min-height: 34px;
+            padding: 0.35rem 0.55rem;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            max-width: 520px;
+        }
+
         .form-wide { max-width: none; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
-        .form-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
-        .danger-zone { border-top: 1px solid #fee2e2; margin-top: 1rem; padding-top: 1rem; }
-        label { font-weight: 600; }
-        .field { display: flex; flex-direction: column; gap: 0.35rem; }
-        .checkbox-field { flex-direction: row; align-items: center; }
-        input, select, textarea { padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 4px; }
-        textarea.code-input { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; font-size: 0.875rem; line-height: 1.45; }
-        
-        .status-badge { padding: 0.25rem 0.5rem; border-radius: 12px; font-size: 0.875rem; font-weight: 500; }
-        .status-active { background: #dcfce7; color: #166534; }
-        .status-inactive { background: #fef3c7; color: #92400e; }
-        .status-draft { background: #e5e7eb; color: #374151; }
-        .status-running { background: #dbeafe; color: #1e40af; }
-        .status-paused { background: #fef3c7; color: #92400e; }
-        .status-completed { background: #dcfce7; color: #166534; }
-        .status-stopped { background: #fee2e2; color: #991b1b; }
-        .status-danger { background: #fee2e2; color: #991b1b; }
-        .subtle { color: #64748b; }
-        .flag-panel { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }
-        .flag-panel-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; padding: 1rem; background: #f8fafc; border-bottom: 1px solid #e5e7eb; }
-        .flag-panel-body { padding: 1rem; }
-        .nested-section { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; }
-        .inline-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+
+        .form-grid {
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .checkbox-field {
+            align-items: center;
+            flex-direction: row;
+        }
+
+        label {
+            font-weight: 800;
+        }
+
+        input,
+        select,
+        textarea {
+            background: #fffdf8;
+            border: 1px solid #cdbda9;
+            border-radius: var(--radius);
+            color: var(--ink);
+            padding: 0.68rem;
+        }
+
+        textarea.code-input,
+        pre {
+            background: #111918;
+            border-color: #111918;
+            color: #d9fff5;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            overflow-x: auto;
+        }
+
+        pre {
+            border-radius: var(--radius);
+            margin: 0;
+            padding: 1rem;
+        }
+
+        details > summary {
+            cursor: pointer;
+        }
+
+        details > summary.btn {
+            display: inline-flex;
+        }
+
+        details > summary.btn::marker {
+            content: "";
+        }
+
+        .status-badge {
+            border-radius: 999px;
+            display: inline-flex;
+            font-size: 0.78rem;
+            font-weight: 800;
+            padding: 0.3rem 0.55rem;
+            white-space: nowrap;
+        }
+
+        .status-active,
+        .status-running,
+        .status-completed,
+        .status-success {
+            background: #dff7ed;
+            color: #0d765d;
+        }
+
+        .status-inactive,
+        .status-draft,
+        .status-paused {
+            background: #f4e8c8;
+            color: #76510b;
+        }
+
+        .status-danger,
+        .status-stopped,
+        .status-suspended {
+            background: #f9ddd7;
+            color: #923321;
+        }
+
+        .flag-panel-header {
+            align-items: flex-start;
+            background: var(--surface-soft);
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            padding: 1rem;
+        }
+
+        .flag-panel-header h3 {
+            font-size: 1.05rem;
+            margin: 0 0 0.25rem;
+        }
+
+        .flag-panel-body {
+            padding: 1rem;
+        }
+
+        .nested-section {
+            border-top: 1px solid var(--line);
+            margin-top: 1.2rem;
+            padding-top: 1rem;
+        }
+
+        .inline-actions,
+        .form-actions {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .danger-zone {
+            border-top: 1px solid #f0c4bb;
+            margin-top: 1rem;
+            padding-top: 1rem;
+        }
+
+        .guide-panel {
+            background: linear-gradient(135deg, var(--rail), var(--rail-soft));
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: var(--radius);
+            color: #fffaf0;
+            display: grid;
+            gap: 1rem;
+            grid-template-columns: minmax(0, 0.9fr) minmax(280px, 1fr);
+            margin-bottom: 1rem;
+            padding: 1rem;
+        }
+
+        .guide-panel h2 {
+            font-size: clamp(1.12rem, 1.4vw, 1.35rem);
+            line-height: 1.18;
+            margin-bottom: 0.65rem;
+        }
+
+        .guide-panel p {
+            color: rgba(255, 250, 240, 0.7);
+        }
+
+        .guide-panel .btn-secondary {
+            border-color: rgba(255, 255, 255, 0.28);
+            color: #fffaf0;
+        }
+
+        .guide-panel .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.38);
+            color: #fffaf0;
+        }
+
+        .guide-panel code {
+            color: #d9fff5;
+        }
+
+        .guide-panel pre {
+            background: rgba(0, 0, 0, 0.26);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .admin-footer {
+            align-items: center;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            padding: 1rem clamp(1rem, 4vw, 2rem) 1.5rem;
+        }
+
+        .admin-footer a {
+            color: var(--accent);
+            font-weight: 800;
+            text-decoration: none;
+        }
+
+        @media (max-width: 920px) {
+            .admin-shell {
+                grid-template-columns: 1fr;
+            }
+
+            .admin-rail {
+                height: auto;
+                position: relative;
+            }
+
+            .rail-nav {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            }
+
+            .page-hero,
+            .flag-panel-header,
+            .topbar,
+            .admin-footer {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .guide-panel {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
-    <nav>
-        <div class="container">
-            <h1>🚀 Beacon Admin</h1>
-            <ul>
-                <li><a href="/">Dashboard</a></li>
-                <li><a href="/sites">Sites</a></li>
-                <li><a href="/flags">Feature Flags</a></li>
-                <li><a href="/admin">Admin</a></li>
-            </ul>
-        </div>
-    </nav>
+    {% set current_path = request.url.path if request is defined else "" %}
+    <div class="admin-shell">
+        <aside class="admin-rail">
+            <div class="rail-brand">
+                <strong>Beacon</strong>
+                <span>Flag-first analytics operations</span>
+            </div>
+            <nav class="rail-nav" aria-label="Admin navigation">
+                <a href="/" class="{% if current_path == '/' %}active{% endif %}">Overview</a>
+                <a href="/sites" class="{% if current_path.startswith('/sites') %}active{% endif %}">Sites</a>
+                <a href="/flags" class="{% if current_path.startswith('/flags') %}active{% endif %}">Feature Flags</a>
+                <a href="/admin" class="{% if current_path.startswith('/admin') %}active{% endif %}">CDN and Ops</a>
+            </nav>
 
-    <div class="container">
-        {% block content %}{% endblock %}
+            </aside>
+            
+            <div class="admin-main">
+                <header class="topbar">
+                    <span class="topbar__meta">Beacon Admin</span>
+                </header>
+            
+                <main class="content">
+                    {% block content %}{% endblock %}
+            </main>
+            
+            <footer class="admin-footer">
+                <span>Beacon Admin</span>
+                <a href="https://bitwobbly.com/status/beacon">Track application status</a>
+            </footer>
+            </div>
     </div>
 </body>
 </html>

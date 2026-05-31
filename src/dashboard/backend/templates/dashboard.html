@@ -1,32 +1,65 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h2>Welcome to Beacon Admin Dashboard</h2>
+<section class="page-hero">
+    <div>
+        <h1>Overview</h1>
+        <p>Operate analytics, feature flags, experiments, CDN publishing, and result refreshes from one workflow.</p>
     </div>
-    <div class="card-body">
-        <p>Manage your analytics platform from here:</p>
-        <br>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
-            <div class="card">
-                <div class="card-body">
-                    <h3>🏠 Sites</h3>
-                    <p>Manage your websites and domains</p>
-                    <br>
-                    <a href="/sites" class="btn">Manage Sites</a>
-                </div>
+    <a href="/flags" class="btn">Manage feature flags</a>
+</section>
+
+<section class="panel-grid">
+    <article class="card">
+        <div class="card-header">
+            <h3>Sites</h3>
             </div>
+            <div class="card-body">
+            <p class="subtle">Register domains before accepting client events or flag evaluations.</p>
+            <br>
+            <a href="/sites" class="btn btn-secondary">Manage sites</a>
+            </div>
+            </article>
             
-            <div class="card">
-                <div class="card-body">
-                    <h3>🏁 Feature Flags</h3>
-                    <p>Control flags, rollouts, and experiments</p>
-                    <br>
-                    <a href="/flags" class="btn">Manage Flags</a>
+            <article class="card">
+                <div class="card-header">
+                    <h3>Feature flags</h3>
                 </div>
+                <div class="card-body">
+            <p class="subtle">Edit flags, nested experiments, variants, traffic allocation, and result links.</p>
+            <br>
+            <a href="/flags" class="btn btn-secondary">Manage flags</a>
+            </div>
+    </article>
+    
+    <article class="card">
+        <div class="card-header">
+            <h3>CDN and operations</h3>
+        </div>
+        <div class="card-body">
+            <p class="subtle">Publish flags, sites, and the static config consumed by browsers.</p>
+            <br>
+            <a href="/admin" class="btn btn-secondary">Open ops panel</a>
+            </div>
+    </article>
+    </section>
+    
+    <section class="guide-panel">
+        <div>
+            <h2>Flag operating model</h2>
+            <p>
+                Create a flag for the product decision first. Attach an experiment only when you need
+                controlled allocation and measurement. The client always asks for the flag key.
+            </p>
+            <div class="inline-actions">
+                <a href="/flags" class="btn">Create a flag</a>
+                <a href="/admin" class="btn btn-secondary">Publish config</a>
             </div>
         </div>
-    </div>
-</div>
+    <pre>await BeaconOpenFeature.getStringDetails(
+      "checkout_flow",
+      "control",
+      { plan: "pro" }
+    );</pre>
+    </section>
 {% endblock %}

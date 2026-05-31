@@ -1,9 +1,38 @@
 {% extends "base.html" %}
 
 {% block content %}
+<section class="page-hero">
+    <div>
+        <h1>Feature flags</h1>
+        <p>Create the flag contract first, then add experiments inside the flag when you need measured allocation.</p>
+    </div>
+    <a href="/admin" class="btn btn-secondary">Publish CDN config</a>
+</section>
+
+<section class="guide-panel">
+    <div>
+        <h2>Flag-first workflow</h2>
+        <p>
+            The browser client fetches config from the CDN. Each flag can contain one running
+            experiment, and result tracking uses the nested experiment metadata.
+        </p>
+        <p><code>BeaconOpenFeature.track()</code> will reuse the latest evaluation metadata when you pass the same flag key.</p>
+    </div>
+    <pre>const details = await BeaconOpenFeature.getObjectDetails(
+  "homepage_theme",
+  { palette: "classic" }
+);
+
+BeaconOpenFeature.track("signup_click", {}, {
+  flagKey: "homepage_theme",
+  conversionId: "signup_click",
+  value: 1
+});</pre>
+</section>
+
 <div class="card">
     <div class="card-header">
-        <h2>Feature Flags</h2>
+        <h2>Create and manage flags</h2>
     </div>
     <div class="card-body">
         <details style="margin-bottom: 2rem;">
@@ -111,6 +140,25 @@
                         <span style="margin-left: 1rem;"><strong>Rollout:</strong> {{ flag.rollout_percentage }}%</span>
                         <span style="margin-left: 1rem;"><strong>Experiments:</strong> {{ flag_experiments|length }}</span>
                     </p>
+
+                    <div class="panel-grid" style="margin-top: 1rem;">
+                        <article class="metric-card">
+                            <span>Client lookup</span>
+                            <strong style="font-size: 1rem;"><code>{{ flag.flag_key }}</code></strong>
+                            <p class="subtle">Use this flag key in clients and tracking events.</p>
+                        </article>
+                        <article class="metric-card">
+                            <span>Default value</span>
+                            <pre style="margin-top: 0.5rem;">{{ flag.default_value|tojson }}</pre>
+                        </article>
+                        <article class="metric-card">
+                            <span>Browser snippet</span>
+                            <pre style="margin-top: 0.5rem;">await BeaconOpenFeature.getDetails(
+  "{{ flag.flag_key }}",
+  {{ flag.default_value|tojson }}
+);</pre>
+                        </article>
+                    </div>
 
                     <details class="nested-section">
                         <summary style="cursor: pointer; font-weight: 600;">Edit Flag</summary>
