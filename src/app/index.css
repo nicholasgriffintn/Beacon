@@ -12,6 +12,15 @@
 	--accent-2: #ff6b4a;
 	--accent-3: #d6a73f;
 	--success: #15966f;
+	--body-accent: rgba(0, 143, 131, 0.18);
+	--body-start: #f7eddb;
+	--body-mid: #fffaf0;
+	--body-end: #e8dcc9;
+	--nav-link: #443d34;
+	--hover-surface: rgba(16, 32, 29, 0.08);
+	--meter-track: #e7ded1;
+	--code-bg: #111918;
+	--code-text: #d9fff5;
 	--shadow: 0 24px 80px rgba(36, 29, 19, 0.18);
 	--radius: 8px;
 	--mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
@@ -32,8 +41,8 @@ body {
 	margin: 0;
 	min-width: 320px;
 	background:
-		radial-gradient(circle at 82% 4%, rgba(0, 143, 131, 0.18), transparent 32rem),
-		linear-gradient(120deg, #f7eddb 0%, #fffaf0 46%, #e8dcc9 100%);
+		radial-gradient(circle at 82% 4%, var(--body-accent), transparent 32rem),
+		linear-gradient(120deg, var(--body-start) 0%, var(--body-mid) 46%, var(--body-end) 100%);
 	color: var(--ink);
 }
 
@@ -101,14 +110,14 @@ code {
 
 .site-nav__links a {
 	border-radius: 999px;
-	color: #443d34;
+	color: var(--nav-link);
 	font-size: 0.94rem;
 	padding: 0.55rem 0.8rem;
 	text-decoration: none;
 }
 
 .site-nav__links a:hover {
-	background: rgba(16, 32, 29, 0.08);
+	background: var(--hover-surface);
 }
 
 main {
@@ -214,7 +223,7 @@ h3 {
 }
 
 .btn-secondary:hover {
-	background: rgba(22, 24, 23, 0.07);
+	background: var(--hover-surface);
 }
 
 .product-preview {
@@ -222,7 +231,7 @@ h3 {
 }
 
 .preview-window {
-	background: linear-gradient(145deg, #17302c 0%, #111918 100%);
+	background: linear-gradient(145deg, var(--nav-2) 0%, var(--nav) 100%);
 	border: 1px solid rgba(255, 255, 255, 0.18);
 	border-radius: 16px;
 	box-shadow: var(--shadow);
@@ -325,7 +334,7 @@ h3 {
 .workflow-grid article,
 .experience-card,
 .mini-dashboard {
-	background: rgba(255, 253, 248, 0.86);
+	background: var(--panel);
 	border: 1px solid var(--line);
 	border-radius: var(--radius);
 }
@@ -351,7 +360,7 @@ h3 {
 }
 
 .preview-meter {
-	background: #e7ded1;
+	background: var(--meter-track);
 	border-radius: 999px;
 	height: 0.7rem;
 	overflow: hidden;
@@ -376,7 +385,7 @@ h3 {
 }
 
 .variant-list div {
-	background: #fffdf8;
+	background: var(--panel-strong);
 	padding: 1rem;
 }
 
@@ -387,10 +396,10 @@ h3 {
 
 .preview-panel pre,
 .code-console pre {
-	background: #111918;
+	background: var(--code-bg);
 	border: 1px solid rgba(255, 255, 255, 0.09);
 	border-radius: var(--radius);
-	color: #d9fff5;
+	color: var(--code-text);
 	line-height: 1.5;
 	margin: 1rem 0 0;
 	overflow-x: auto;
@@ -441,9 +450,10 @@ h3 {
 }
 
 .principle-list span {
+	background: var(--panel);
 	border: 1px solid var(--line);
 	border-radius: 999px;
-	color: #4f473d;
+	color: var(--ink);
 	padding: 0.55rem 0.75rem;
 }
 
@@ -453,7 +463,7 @@ h3 {
 }
 
 .code-console__tabs {
-	background: #fffdf8;
+	background: var(--panel-strong);
 	border-bottom: 1px solid var(--line);
 	display: flex;
 	gap: 0.4rem;
@@ -599,7 +609,7 @@ h3 {
 .experiment-tester__variant,
 .processing-mode-tester__action,
 .testing-controls__btn {
-	background: #fffdf8;
+	background: var(--panel-strong);
 	border: 1px solid var(--line);
 	border-radius: 8px;
 	color: var(--ink);
@@ -611,6 +621,8 @@ h3 {
 
 .experiment-tester__control:hover,
 .experiment-tester__variant:hover,
+.experiment-tester__control.active,
+.experiment-tester__variant.active,
 .processing-mode-tester__action:hover,
 .testing-controls__btn:hover,
 .testing-controls__btn.active {
@@ -620,7 +632,7 @@ h3 {
 }
 
 .processing-mode-tester__stats {
-	background: #f7efe3;
+	background: var(--page-soft);
 	border-radius: 8px;
 	display: grid;
 	gap: 0.45rem;

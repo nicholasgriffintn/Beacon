@@ -1,26 +1,27 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useOpenFeature } from '../hooks/use-openfeature';
 import { useTrackEvent } from '../hooks/use-track-event';
+import {
+  createDemoThemeTokens,
+  DEMO_TARGETING_KEYS,
+  type DemoThemeDetails,
+  type DemoThemeVariant,
+  getDemoThemeVariant,
+} from '../lib/demo-theme';
 
-const setLightTheme = (config: Record<string, string> = {}) => {
-  document.documentElement.style.setProperty('--bg-color', config.bgColor || '#ffffff');
-  document.documentElement.style.setProperty('--text-color', config.textColor || '#333333');
-  document.documentElement.style.setProperty('--heading-color', config.headingColor || '#2563eb');
-  document.documentElement.style.setProperty('--border-color', config.borderColor || '#e5e7eb');
-};
+const applyThemeDetails = (details: DemoThemeDetails | undefined) => {
+  if (!details) return;
 
-const setDarkTheme = (config: Record<string, string> = {}) => {
-  document.documentElement.style.setProperty('--bg-color', config.bgColor || '#1a1a1a');
-  document.documentElement.style.setProperty('--text-color', config.textColor || '#e5e7eb');
-  document.documentElement.style.setProperty('--heading-color', config.headingColor || '#60a5fa');
-  document.documentElement.style.setProperty('--border-color', config.borderColor || '#374151');
-  document.documentElement.style.setProperty('--code-bg', config.codeBg || '#2d3748');
-  document.documentElement.style.setProperty('--code-text', config.codeText || '#e2e8f0');
+  const tokens = createDemoThemeTokens(details);
+  for (const [name, value] of Object.entries(tokens)) {
+    document.documentElement.style.setProperty(name, value);
+  }
 };
 
 export function ExperimentTester() {
   const { getObjectDetails, track, isReady } = useOpenFeature();
   const trackEvent = useTrackEvent();
+  const [resolvedVariant, setResolvedVariant] = useState<DemoThemeVariant | null>(null);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only run once ready
   useEffect(() => {
@@ -28,38 +29,55 @@ export function ExperimentTester() {
 
     const setupExperiment = async () => {
       const details = await getObjectDetails('color_scheme', {});
+      applyThemeDetails(details);
 
-      if (details?.variant === 'color_scheme_dark' || details?.flagMetadata.variant_name === 'dark') {
-        setDarkTheme(details.value);
-      } else {
-        setLightTheme(details?.value || {});
+      if (details?.errorCode) {
+        return;
       }
+
+      const variant = getDemoThemeVariant(details || {});
+      setResolvedVariant(variant);
     };
 
     setupExperiment();
   }, [isReady]);
 
-  const handleThemeChange = async (variant: 'control' | 'dark') => {
+  const handleThemeChange = async (variant: DemoThemeVariant) => {
     if (!isReady) return;
 
-    if (variant === 'dark') {
-      setDarkTheme();
-    } else {
-      setLightTheme();
+    const context = {
+      targetingKey: DEMO_TARGETING_KEYS[variant],
+      demoVariant: variant,
+    };
+    const details = await getObjectDetails('color_scheme', {}, context);
+    applyThemeDetails(details);
+
+    if (details?.errorCode) {
+      return;
     }
 
-    track('theme_preview', {}, {
+    const resolved = getDemoThemeVariant(details || {});
+    setResolvedVariant(resolved);
+
+    await track('theme_preview', context, {
       flagKey: 'color_scheme',
       flagSource: 'feature_flag',
       conversionId: 'theme_preview',
       value: 1,
       previewVariant: variant,
+      variant: details?.variant,
+      variantId: details?.flagMetadata?.variant_id,
+      variantName: details?.flagMetadata?.variant_name,
     });
     trackEvent({
       name: 'openfeature_theme_preview',
       category: 'openfeature',
       label: 'color_scheme',
-      value: variant
+      value: resolved,
+      properties: {
+        requested_variant: variant,
+        resolved_variant: resolved,
+      },
     });
   };
 
@@ -74,14 +92,14 @@ export function ExperimentTester() {
         <button
           type="button"
           onClick={() => handleThemeChange('control')}
-          className="experiment-tester__control"
+          className={`experiment-tester__control ${resolvedVariant === 'control' ? 'active' : ''}`}
         >
           Light Theme
         </button>
         <button
           type="button"
           onClick={() => handleThemeChange('dark')}
-          className="experiment-tester__variant"
+          className={`experiment-tester__variant ${resolvedVariant === 'dark' ? 'active' : ''}`}
         >
           Dark Theme
         </button>
