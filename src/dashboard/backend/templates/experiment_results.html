@@ -117,7 +117,7 @@
     </div>
     <div class="card-body">
         <div class="results-toolbar">
-            <form method="post" action="/experiments/{{ experiment_id }}/results/refresh">
+            <form method="post" action="/flags/{{ flag_key }}/experiments/{{ experiment_id }}/results/refresh">
                 <button type="submit" class="btn">Refresh Results</button>
             </form>
 
@@ -237,7 +237,7 @@
         {% endif %}
         
         <br>
-        <a href="/experiments" class="btn">← Back to Experiments</a>
+        <a href="/flags" class="btn">Back to Feature Flags</a>
     </div>
 </div>
 {% endblock %}

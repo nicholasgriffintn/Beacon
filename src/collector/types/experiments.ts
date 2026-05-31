@@ -56,10 +56,13 @@ export interface ExperimentCreate {
 export interface ExperimentUpdate {
   name?: string;
   description?: string;
+  type?: ExperimentType;
+  site_id?: string | null;
   targeting_rules?: Record<string, any>;
   traffic_allocation?: number;
   start_time?: string;
   end_time?: string;
   status?: ExperimentStatus;
   stopped_reason?: string;
+  variants?: Array<Omit<Variant, 'id' | 'experiment_id'> & { id?: string }>;
 } 

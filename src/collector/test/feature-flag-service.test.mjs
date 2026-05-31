@@ -116,6 +116,59 @@ function createMockD1() {
     prepare(sql) {
       return new MockStatement(this, sql);
     },
+    async batch(statements) {
+      for (const statement of statements) {
+        if (statement.sql.includes("DELETE FROM assignments")) {
+          const [flagKey] = statement.params;
+          const experimentIds = new Set(
+            [...this.experiments.values()]
+              .filter(experiment => experiment.flag_key === flagKey)
+              .map(experiment => experiment.id),
+          );
+
+          for (const [key, assignment] of this.assignments) {
+            if (experimentIds.has(assignment.experiment_id)) {
+              this.assignments.delete(key);
+            }
+          }
+        }
+
+        if (statement.sql.includes("DELETE FROM variants")) {
+          const [flagKey] = statement.params;
+          const experimentIds = new Set(
+            [...this.experiments.values()]
+              .filter(experiment => experiment.flag_key === flagKey)
+              .map(experiment => experiment.id),
+          );
+
+          for (const [key, variant] of this.variants) {
+            if (experimentIds.has(variant.experiment_id)) {
+              this.variants.delete(key);
+            }
+          }
+        }
+
+        if (statement.sql.includes("DELETE FROM experiments WHERE flag_key = ?")) {
+          const [flagKey] = statement.params;
+          for (const [key, experiment] of this.experiments) {
+            if (experiment.flag_key === flagKey) {
+              this.experiments.delete(key);
+            }
+          }
+        }
+
+        if (statement.sql.includes("DELETE FROM flag_evaluations WHERE flag_key = ?")) {
+          const [flagKey] = statement.params;
+          this.evaluations = this.evaluations.filter(evaluation => evaluation[2] !== flagKey);
+        }
+
+        if (statement.sql.includes("DELETE FROM feature_flags WHERE flag_key = ?")) {
+          this.flags.delete(statement.params[0]);
+        }
+      }
+
+      return statements.map(() => ({ success: true }));
+    },
   };
 }
 
@@ -140,4 +193,20 @@ test("evaluates active experiments inside the feature flag evaluation path", asy
   assert.equal(result.reason, "rollout");
   assert.equal(db.assignments.has("exp_homepage_cta:user-1"), true);
   assert.equal(db.evaluations.length, 1);
+});
+
+test("deletes a feature flag with nested experiments", async () => {
+  const db = createMockD1();
+  db.assignments.set("exp_homepage_cta:user-1", {
+    experiment_id: "exp_homepage_cta",
+    user_id: "user-1",
+  });
+  const service = new FeatureFlagService(db);
+
+  assert.equal(await service.deleteFlag("homepage_cta"), true);
+  assert.equal(await service.deleteFlag("homepage_cta"), false);
+  assert.equal(db.flags.has("homepage_cta"), false);
+  assert.equal(db.experiments.has("exp_homepage_cta"), false);
+  assert.equal(db.variants.has("variant_treatment"), false);
+  assert.equal(db.assignments.has("exp_homepage_cta:user-1"), false);
 });

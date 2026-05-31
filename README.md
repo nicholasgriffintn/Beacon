@@ -9,7 +9,7 @@ This is a comprehensive analytics and experimentation platform built on Cloudfla
 - **Feature flags**: Supports targeting rules, rollout controls, kill switches, evaluation logging, and CDN-published flag definitions.
 - **Site validation**: Enforces registered domains before accepting analytics events.
 - **Abuse controls**: Applies per-site/client rate limits to event ingestion and public evaluation endpoints.
-- **Management dashboard**: Provides site, experiment, feature flag, result, and CDN publishing controls through the FastAPI admin dashboard.
+- **Management dashboard**: Provides site, feature flag, nested experiment, result, and CDN publishing controls through the FastAPI admin dashboard.
 - **Analytics workspace**: Ships a notebook environment and Apache Superset service for analysis and reporting.
 - **Operational readiness**: Exposes health checks, static validation scripts, minified client bundles, and deployable Cloudflare configuration.
 
@@ -127,6 +127,7 @@ podman compose up
 - `POST /api/experiments` - Create experiment
 - `GET /api/experiments/:id` - Get experiment
 - `PUT /api/experiments/:id` - Update experiment
+- `DELETE /api/experiments/:id` - Delete experiment
 
 #### Experiment Results (`X-API-Key` required)
 - `GET /api/experiments/:id/results` - Get latest results

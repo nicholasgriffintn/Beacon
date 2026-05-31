@@ -99,6 +99,34 @@ experimentsRouter.put("/:id", async (c: Context) => {
   }
 });
 
+experimentsRouter.delete("/:id", async (c: Context) => {
+  try {
+    const experimentService = new ExperimentService(c.env.DB);
+    const deleted = await experimentService.deleteExperiment(c.req.param("id"));
+
+    if (!deleted) {
+      return c.json({ error: "Experiment not found" }, 404);
+    }
+
+    let cdnPublish: CdnPublishResult;
+    try {
+      cdnPublish = await publishCdnForMutation(c.env.DB, c.env.CDN_BUCKET, "experiment");
+    } catch (publishError) {
+      console.error("CDN publish failed after experiment delete", publishError);
+      return c.json({ error: "Experiment deleted but CDN publish failed" }, 502);
+    }
+
+    return c.json(
+      { message: "Experiment deleted successfully" },
+      200,
+      getCdnPublishHeaders(cdnPublish),
+    );
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Error deleting experiment" }, 500);
+  }
+});
+
 experimentsRouter.post("/:id/results/refresh", async (c: Context) => {
   try {
     const experimentId = c.req.param("id");

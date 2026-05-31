@@ -3,99 +3,342 @@
 {% block content %}
 <div class="card">
     <div class="card-header">
-        <h2>Feature Flags Management</h2>
+        <h2>Feature Flags</h2>
     </div>
     <div class="card-body">
         <details style="margin-bottom: 2rem;">
-            <summary style="cursor: pointer; font-weight: 600; margin-bottom: 1rem;">➕ Create New Feature Flag</summary>
-            
-            <form method="post" action="/flags/create">
-                <label for="flag_key">Flag Key:</label>
-                <input type="text" name="flag_key" id="flag_key" required placeholder="new-dashboard" pattern="[a-z0-9-_]+" title="Only lowercase letters, numbers, hyphens, and underscores">
-                
-                <label for="name">Display Name:</label>
-                <input type="text" name="name" id="name" required placeholder="New Dashboard">
-                
-                <label for="description">Description:</label>
-                <textarea name="description" id="description" rows="3" placeholder="Enable the new dashboard design"></textarea>
-                
-                <label for="site_id">Site:</label>
-                <select name="site_id" id="site_id">
-                    <option value="">No Site (Global)</option>
-                    {% for site in sites %}
-                    <option value="{{ site.site_id }}">{{ site.name }} ({{ site.site_id }})</option>
-                    {% endfor %}
-                </select>
-                
-                <label>
-                    <input type="checkbox" name="enabled" value="true"> Enabled
+            <summary style="cursor: pointer; font-weight: 600; margin-bottom: 1rem;">Create Feature Flag</summary>
+
+            <form method="post" action="/flags/create" class="form-wide">
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="flag_key">Flag Key</label>
+                        <input type="text" name="flag_key" id="flag_key" required placeholder="new-dashboard" pattern="[a-z0-9-_]+" title="Only lowercase letters, numbers, hyphens, and underscores">
+                    </div>
+
+                    <div class="field">
+                        <label for="name">Display Name</label>
+                        <input type="text" name="name" id="name" required placeholder="New Dashboard">
+                    </div>
+
+                    <div class="field">
+                        <label for="site_id">Site</label>
+                        <select name="site_id" id="site_id">
+                            <option value="">Global</option>
+                            {% for site in sites %}
+                            <option value="{{ site.site_id }}">{{ site.name }} ({{ site.site_id }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="rollout_percentage">Rollout Percentage</label>
+                        <input type="number" name="rollout_percentage" id="rollout_percentage" min="0" max="100" value="0" step="0.1">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label for="description">Description</label>
+                    <textarea name="description" id="description" rows="3" placeholder="Enable the new dashboard design"></textarea>
+                </div>
+
+                <div class="field">
+                    <label for="default_value_json">Default Value JSON</label>
+                    <textarea name="default_value_json" id="default_value_json" rows="2" class="code-input">false</textarea>
+                </div>
+
+                <div class="field">
+                    <label for="variations_json">Flag Variations JSON</label>
+                    <textarea name="variations_json" id="variations_json" rows="5" class="code-input">[{"key":"on","value":true,"description":"Feature enabled"},{"key":"off","value":false,"description":"Feature disabled"}]</textarea>
+                </div>
+
+                <div class="field">
+                    <label for="targeting_rules_json">Targeting Rules JSON</label>
+                    <textarea name="targeting_rules_json" id="targeting_rules_json" rows="4" class="code-input">[]</textarea>
+                </div>
+
+                <label class="field checkbox-field">
+                    <input type="checkbox" name="enabled" value="true">
+                    Enabled
                 </label>
-                
-                <label for="rollout_percentage">Rollout Percentage:</label>
-                <input type="number" name="rollout_percentage" id="rollout_percentage" min="0" max="100" value="0" step="1">
-                
+
                 <button type="submit" class="btn">Create Flag</button>
             </form>
         </details>
 
         {% if flags %}
-        <table>
-            <thead>
-                <tr>
-                    <th>Flag Key</th>
-                    <th>Name</th>
-                    <th>Site</th>
-                    <th>Status</th>
-                    <th>Rollout</th>
-                    <th>Kill Switch</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for flag in flags %}
-                <tr>
-                    <td><code>{{ flag.flag_key }}</code></td>
-                    <td>
-                        <strong>{{ flag.name }}</strong>
-                        {% if flag.description %}<br><small style="color: #666;">{{ flag.description }}</small>{% endif %}
-                    </td>
-                    <td>
-                        {% if flag.site_id %}
-                        <code>{{ flag.site_id }}</code>
-                        {% else %}
-                        <span style="color: #666;">Global</span>
+            {% for flag in flags %}
+            {% set flag_experiments = experiments_by_flag.get(flag.flag_key, []) %}
+            <section class="flag-panel">
+                <div class="flag-panel-header">
+                    <div>
+                        <h3>{{ flag.name }}</h3>
+                        <code>{{ flag.flag_key }}</code>
+                        {% if flag.description %}
+                        <p class="subtle">{{ flag.description }}</p>
                         {% endif %}
-                    </td>
-                    <td>
+                    </div>
+
+                    <div class="inline-actions">
                         {% if flag.enabled %}
                             <span class="status-badge status-active">Enabled</span>
                         {% else %}
                             <span class="status-badge status-inactive">Disabled</span>
                         {% endif %}
-                    </td>
-                    <td>{{ flag.rollout_percentage }}%</td>
-                    <td>
+
                         {% if flag.kill_switch %}
-                            <span class="status-badge status-danger">Active</span>
-                        {% else %}
-                            <span class="status-badge status-inactive">Inactive</span>
+                            <span class="status-badge status-danger">Kill switch</span>
                         {% endif %}
-                    </td>
-                    <td>
-                        <form method="post" action="/flags/{{ flag.flag_key }}/toggle" style="display: inline;">
+
+                        <form method="post" action="/flags/{{ flag.flag_key }}/toggle">
                             {% if flag.enabled %}
-                                <button type="submit" class="btn btn-danger" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Disable</button>
+                                <button type="submit" class="btn btn-danger btn-small">Disable</button>
                             {% else %}
-                                <button type="submit" class="btn btn-success" style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">Enable</button>
+                                <button type="submit" class="btn btn-success btn-small">Enable</button>
                             {% endif %}
                         </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                    </div>
+                </div>
+
+                <div class="flag-panel-body">
+                    <p>
+                        <strong>Site:</strong>
+                        {% if flag.site_id %}
+                        <code>{{ flag.site_id }}</code>
+                        {% else %}
+                        <span class="subtle">Global</span>
+                        {% endif %}
+                        <span style="margin-left: 1rem;"><strong>Rollout:</strong> {{ flag.rollout_percentage }}%</span>
+                        <span style="margin-left: 1rem;"><strong>Experiments:</strong> {{ flag_experiments|length }}</span>
+                    </p>
+
+                    <details class="nested-section">
+                        <summary style="cursor: pointer; font-weight: 600;">Edit Flag</summary>
+                        <form method="post" action="/flags/{{ flag.flag_key }}/edit" class="form-wide" style="margin-top: 1rem;">
+                            <div class="form-grid">
+                                <div class="field">
+                                    <label for="flag_{{ flag.flag_key }}_name">Display Name</label>
+                                    <input type="text" name="name" id="flag_{{ flag.flag_key }}_name" value="{{ flag.name }}" required>
+                                </div>
+
+                                <div class="field">
+                                    <label for="flag_{{ flag.flag_key }}_site">Site</label>
+                                    <select name="site_id" id="flag_{{ flag.flag_key }}_site">
+                                        <option value="">Global</option>
+                                        {% for site in sites %}
+                                        <option value="{{ site.site_id }}" {% if flag.site_id == site.site_id %}selected{% endif %}>{{ site.name }} ({{ site.site_id }})</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+
+                                <div class="field">
+                                    <label for="flag_{{ flag.flag_key }}_rollout">Rollout Percentage</label>
+                                    <input type="number" name="rollout_percentage" id="flag_{{ flag.flag_key }}_rollout" min="0" max="100" value="{{ flag.rollout_percentage }}" step="0.1">
+                                </div>
+                            </div>
+
+                            <div class="field">
+                                <label for="flag_{{ flag.flag_key }}_description">Description</label>
+                                <textarea name="description" id="flag_{{ flag.flag_key }}_description" rows="3">{{ flag.description or "" }}</textarea>
+                            </div>
+
+                            <div class="field">
+                                <label for="flag_{{ flag.flag_key }}_default">Default Value JSON</label>
+                                <textarea name="default_value_json" id="flag_{{ flag.flag_key }}_default" rows="2" class="code-input">{{ flag.default_value|tojson }}</textarea>
+                            </div>
+
+                            <div class="field">
+                                <label for="flag_{{ flag.flag_key }}_variations">Flag Variations JSON</label>
+                                <textarea name="variations_json" id="flag_{{ flag.flag_key }}_variations" rows="5" class="code-input">{{ flag.variations|tojson }}</textarea>
+                            </div>
+
+                            <div class="field">
+                                <label for="flag_{{ flag.flag_key }}_rules">Targeting Rules JSON</label>
+                                <textarea name="targeting_rules_json" id="flag_{{ flag.flag_key }}_rules" rows="5" class="code-input">{{ flag.targeting_rules|tojson }}</textarea>
+                            </div>
+
+                            <div class="form-actions">
+                                <label class="field checkbox-field">
+                                    <input type="checkbox" name="enabled" value="true" {% if flag.enabled %}checked{% endif %}>
+                                    Enabled
+                                </label>
+
+                                <label class="field checkbox-field">
+                                    <input type="checkbox" name="kill_switch" value="true" {% if flag.kill_switch %}checked{% endif %}>
+                                    Kill switch
+                                </label>
+                            </div>
+
+                            <button type="submit" class="btn">Save Flag</button>
+                        </form>
+
+                        <form method="post" action="/flags/{{ flag.flag_key }}/delete" class="danger-zone" onsubmit="return confirm('Delete this feature flag and its experiments?');">
+                            <button type="submit" class="btn btn-danger">Delete Flag</button>
+                        </form>
+                    </details>
+
+                    <div class="nested-section">
+                        <div class="inline-actions" style="justify-content: space-between;">
+                            <h4>Experiments</h4>
+                            <details>
+                                <summary class="btn btn-secondary btn-small" style="list-style: none;">Create Experiment</summary>
+                                <form method="post" action="/flags/{{ flag.flag_key }}/experiments/create" class="form-wide" style="margin-top: 1rem;">
+                                    <div class="form-grid">
+                                        <div class="field">
+                                            <label for="exp_{{ flag.flag_key }}_name">Experiment Name</label>
+                                            <input type="text" name="name" id="exp_{{ flag.flag_key }}_name" required placeholder="Homepage Button Test">
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="exp_{{ flag.flag_key }}_type">Type</label>
+                                            <select name="experiment_type" id="exp_{{ flag.flag_key }}_type">
+                                                <option value="ab_test">A/B Test</option>
+                                                <option value="feature_flag">Feature Flag</option>
+                                                <option value="holdout">Holdout</option>
+                                            </select>
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="exp_{{ flag.flag_key }}_site">Site</label>
+                                            <select name="site_id" id="exp_{{ flag.flag_key }}_site">
+                                                <option value="">Global</option>
+                                                {% for site in sites %}
+                                                <option value="{{ site.site_id }}" {% if flag.site_id == site.site_id %}selected{% endif %}>{{ site.name }} ({{ site.site_id }})</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+
+                                        <div class="field">
+                                            <label for="exp_{{ flag.flag_key }}_traffic">Traffic Allocation</label>
+                                            <input type="number" name="traffic_allocation" id="exp_{{ flag.flag_key }}_traffic" min="0" max="100" value="100" step="0.1">
+                                        </div>
+                                    </div>
+
+                                    <div class="field">
+                                        <label for="exp_{{ flag.flag_key }}_description">Description</label>
+                                        <textarea name="description" id="exp_{{ flag.flag_key }}_description" rows="3"></textarea>
+                                    </div>
+
+                                    <div class="field">
+                                        <label for="exp_{{ flag.flag_key }}_rules">Experiment Targeting Rules JSON</label>
+                                        <textarea name="targeting_rules_json" id="exp_{{ flag.flag_key }}_rules" rows="4" class="code-input">{}</textarea>
+                                    </div>
+
+                                    <div class="field">
+                                        <label for="exp_{{ flag.flag_key }}_variants">Experiment Variants JSON</label>
+                                        <textarea name="variants_json" id="exp_{{ flag.flag_key }}_variants" rows="8" class="code-input">[{"name":"Control","type":"control","config":{},"traffic_percentage":50},{"name":"Treatment","type":"treatment","config":{},"traffic_percentage":50}]</textarea>
+                                    </div>
+
+                                    <button type="submit" class="btn">Create Experiment</button>
+                                </form>
+                            </details>
+                        </div>
+
+                        {% if flag_experiments %}
+                        <table style="margin-top: 1rem;">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Status</th>
+                                    <th>Traffic</th>
+                                    <th>Variants</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for exp in flag_experiments %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ exp.name }}</strong>
+                                        {% if exp.description %}<br><small class="subtle">{{ exp.description }}</small>{% endif %}
+                                        <br><small class="subtle">{{ exp.type.replace('_', ' ').title() }}{% if exp.site_id %} · {{ exp.site_id }}{% endif %}</small>
+                                    </td>
+                                    <td><span class="status-badge status-{{ exp.status }}">{{ exp.status }}</span></td>
+                                    <td>{{ exp.traffic_allocation }}%</td>
+                                    <td>{{ exp.variants|length if exp.variants else 0 }}</td>
+                                    <td>
+                                        <div class="inline-actions">
+                                            <a href="/flags/{{ flag.flag_key }}/experiments/{{ exp.id }}/results" class="btn btn-small">Results</a>
+                                            <details>
+                                                <summary class="btn btn-secondary btn-small" style="list-style: none;">Edit</summary>
+                                                <form method="post" action="/flags/{{ flag.flag_key }}/experiments/{{ exp.id }}/edit" class="form-wide" style="margin-top: 1rem; min-width: min(720px, 80vw);">
+                                                    <div class="form-grid">
+                                                        <div class="field">
+                                                            <label for="exp_{{ exp.id }}_name">Experiment Name</label>
+                                                            <input type="text" name="name" id="exp_{{ exp.id }}_name" value="{{ exp.name }}" required>
+                                                        </div>
+
+                                                        <div class="field">
+                                                            <label for="exp_{{ exp.id }}_type">Type</label>
+                                                            <select name="experiment_type" id="exp_{{ exp.id }}_type">
+                                                                <option value="ab_test" {% if exp.type == "ab_test" %}selected{% endif %}>A/B Test</option>
+                                                                <option value="feature_flag" {% if exp.type == "feature_flag" %}selected{% endif %}>Feature Flag</option>
+                                                                <option value="holdout" {% if exp.type == "holdout" %}selected{% endif %}>Holdout</option>
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="field">
+                                                            <label for="exp_{{ exp.id }}_status">Status</label>
+                                                            <select name="status" id="exp_{{ exp.id }}_status">
+                                                                {% for status in ["draft", "running", "paused", "completed", "stopped"] %}
+                                                                <option value="{{ status }}" {% if exp.status == status %}selected{% endif %}>{{ status }}</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="field">
+                                                            <label for="exp_{{ exp.id }}_site">Site</label>
+                                                            <select name="site_id" id="exp_{{ exp.id }}_site">
+                                                                <option value="">Global</option>
+                                                                {% for site in sites %}
+                                                                <option value="{{ site.site_id }}" {% if exp.site_id == site.site_id %}selected{% endif %}>{{ site.name }} ({{ site.site_id }})</option>
+                                                                {% endfor %}
+                                                            </select>
+                                                        </div>
+
+                                                        <div class="field">
+                                                            <label for="exp_{{ exp.id }}_traffic">Traffic Allocation</label>
+                                                            <input type="number" name="traffic_allocation" id="exp_{{ exp.id }}_traffic" min="0" max="100" value="{{ exp.traffic_allocation }}" step="0.1">
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="field">
+                                                        <label for="exp_{{ exp.id }}_description">Description</label>
+                                                        <textarea name="description" id="exp_{{ exp.id }}_description" rows="3">{{ exp.description or "" }}</textarea>
+                                                    </div>
+
+                                                    <div class="field">
+                                                        <label for="exp_{{ exp.id }}_rules">Experiment Targeting Rules JSON</label>
+                                                        <textarea name="targeting_rules_json" id="exp_{{ exp.id }}_rules" rows="4" class="code-input">{{ exp.targeting_rules|tojson }}</textarea>
+                                                    </div>
+
+                                                    <div class="field">
+                                                        <label for="exp_{{ exp.id }}_variants">Experiment Variants JSON</label>
+                                                        <textarea name="variants_json" id="exp_{{ exp.id }}_variants" rows="8" class="code-input">{{ exp.variants|tojson }}</textarea>
+                                                    </div>
+
+                                                    <button type="submit" class="btn">Save Experiment</button>
+                                                </form>
+                                            </details>
+
+                                            <form method="post" action="/flags/{{ flag.flag_key }}/experiments/{{ exp.id }}/delete" onsubmit="return confirm('Delete this experiment?');">
+                                                <button type="submit" class="btn btn-danger btn-small">Delete</button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <p class="subtle" style="padding: 1rem 0;">No experiments attached to this flag.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </section>
+            {% endfor %}
         {% else %}
-        <p style="text-align: center; color: #666; padding: 2rem;">No feature flags found. Create your first flag above!</p>
+        <p style="text-align: center; color: #666; padding: 2rem;">No feature flags found. Create your first flag above.</p>
         {% endif %}
     </div>
 </div>

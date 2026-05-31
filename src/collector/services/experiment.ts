@@ -172,6 +172,15 @@ export class ExperimentService {
       updates.push('description = ?');
       values.push(update.description);
     }
+    if (update.type !== undefined) {
+      this.validateExperimentType(update.type);
+      updates.push('type = ?');
+      values.push(update.type);
+    }
+    if (update.site_id !== undefined) {
+      updates.push('site_id = ?');
+      values.push(update.site_id || null);
+    }
     if (update.targeting_rules !== undefined) {
       updates.push('targeting_rules = ?');
       values.push(JSON.stringify(update.targeting_rules));
@@ -189,12 +198,13 @@ export class ExperimentService {
       values.push(update.end_time);
     }
     if (update.status !== undefined) {
+      this.validateExperimentStatus(update.status);
       updates.push('status = ?');
       values.push(update.status);
       
-      if (update.status === 'running') {
+      if (update.status !== experiment.status && update.status === 'running') {
         updates.push('started_at = CURRENT_TIMESTAMP');
-      } else if (update.status === 'completed' || update.status === 'stopped') {
+      } else if (update.status !== experiment.status && (update.status === 'completed' || update.status === 'stopped')) {
         updates.push('ended_at = CURRENT_TIMESTAMP');
         if (update.stopped_reason) {
           updates.push('stopped_reason = ?');
@@ -205,13 +215,82 @@ export class ExperimentService {
 
     updates.push('updated_at = CURRENT_TIMESTAMP');
 
-    if (updates.length > 0) {
-      await this.db.prepare(
+    const statements = [
+      this.db.prepare(
         `UPDATE experiments SET ${updates.join(', ')} WHERE id = ?`
-      ).bind(...values, id).run();
+      ).bind(...values, id),
+    ];
+
+    if (update.variants !== undefined) {
+      this.validateVariants(update.variants);
+      const existingVariantIds = new Set(experiment.variants.map(variant => variant.id));
+      const retainedVariantIds = new Set<string>();
+
+      for (const variant of update.variants) {
+        if (variant.id && existingVariantIds.has(variant.id)) {
+          retainedVariantIds.add(variant.id);
+          statements.push(
+            this.db.prepare(`
+              UPDATE variants
+              SET name = ?, type = ?, config = ?, traffic_percentage = ?
+              WHERE id = ? AND experiment_id = ?
+            `).bind(
+              variant.name,
+              variant.type,
+              JSON.stringify(variant.config),
+              variant.traffic_percentage,
+              variant.id,
+              id,
+            ),
+          );
+        } else {
+          const variantId = crypto.randomUUID();
+          retainedVariantIds.add(variantId);
+          statements.push(
+            this.db.prepare(`
+              INSERT INTO variants (
+                id, experiment_id, name, type,
+                config, traffic_percentage
+              ) VALUES (?, ?, ?, ?, ?, ?)
+            `).bind(
+              variantId,
+              id,
+              variant.name,
+              variant.type,
+              JSON.stringify(variant.config),
+              variant.traffic_percentage,
+            ),
+          );
+        }
+      }
+
+      for (const variant of experiment.variants) {
+        if (!retainedVariantIds.has(variant.id)) {
+          statements.push(
+            this.db.prepare("DELETE FROM variants WHERE id = ? AND experiment_id = ?")
+              .bind(variant.id, id),
+          );
+        }
+      }
     }
 
+    await this.db.batch(statements);
+
     return await this.getExperiment(id);
+  }
+
+  async deleteExperiment(id: string): Promise<boolean> {
+    const experiment = await this.getExperiment(id);
+    if (!experiment) return false;
+
+    await this.db.batch([
+      this.db.prepare("DELETE FROM assignments WHERE experiment_id = ?").bind(id),
+      this.db.prepare("DELETE FROM variants WHERE experiment_id = ?").bind(id),
+      this.db.prepare("DELETE FROM experiment_metrics WHERE experiment_id = ?").bind(id),
+      this.db.prepare("DELETE FROM experiments WHERE id = ?").bind(id),
+    ]);
+
+    return true;
   }
 
   private normalizeVariant(variant: VariantRow): Variant {
@@ -242,24 +321,47 @@ export class ExperimentService {
       throw new InputValidationError("name is required");
     }
 
+    this.validateExperimentType(experimentData.type);
     this.validatePercentage(experimentData.traffic_allocation ?? 100, "traffic_allocation");
+    this.validateVariants(experimentData.variants);
+  }
 
-    if (!Array.isArray(experimentData.variants) || experimentData.variants.length < 2) {
+  private validateVariants(variants: Array<{ name: string; type: Variant["type"]; traffic_percentage: number }>): void {
+    if (!Array.isArray(variants) || variants.length < 2) {
       throw new InputValidationError("experiments require at least two variants");
     }
 
     let totalTraffic = 0;
-    for (const variant of experimentData.variants) {
+    for (const variant of variants) {
       if (!variant.name) {
         throw new InputValidationError("each variant requires a name");
       }
 
+      this.validateVariantType(variant.type);
       this.validatePercentage(variant.traffic_percentage, "variant traffic_percentage");
       totalTraffic += variant.traffic_percentage;
     }
 
     if (Math.round(totalTraffic * 100) / 100 !== 100) {
       throw new InputValidationError("variant traffic_percentage values must sum to 100");
+    }
+  }
+
+  private validateExperimentType(type: Experiment["type"]): void {
+    if (!["ab_test", "feature_flag", "holdout"].includes(type)) {
+      throw new InputValidationError("type must be ab_test, feature_flag, or holdout");
+    }
+  }
+
+  private validateExperimentStatus(status: Experiment["status"]): void {
+    if (!["draft", "running", "paused", "completed", "stopped"].includes(status)) {
+      throw new InputValidationError("status must be draft, running, paused, completed, or stopped");
+    }
+  }
+
+  private validateVariantType(type: Variant["type"]): void {
+    if (!["control", "treatment", "feature_flag"].includes(type)) {
+      throw new InputValidationError("variant type must be control, treatment, or feature_flag");
     }
   }
 

@@ -486,6 +486,11 @@ export class FeatureFlagService {
       updates.push('description = ?');
       values.push(data.description);
     }
+
+    if (data.site_id !== undefined) {
+      updates.push('site_id = ?');
+      values.push(data.site_id || null);
+    }
     
     if (data.enabled !== undefined) {
       updates.push('enabled = ?');
@@ -536,17 +541,32 @@ export class FeatureFlagService {
   }
 
   async deleteFlag(flagKey: string): Promise<boolean> {
-    const result = await this.db
-      .prepare("DELETE FROM feature_flags WHERE flag_key = ?")
-      .bind(flagKey)
-      .run();
-
-    if (result.meta.changes > 0) {
-      await this.invalidateCache(flagKey);
-      return true;
+    const existing = await this.getFlag(flagKey);
+    if (!existing) {
+      return false;
     }
 
-    return false;
+    await this.db.batch([
+      this.db.prepare(`
+        DELETE FROM assignments
+        WHERE experiment_id IN (SELECT id FROM experiments WHERE flag_key = ?)
+      `).bind(flagKey),
+      this.db.prepare(`
+        DELETE FROM variants
+        WHERE experiment_id IN (SELECT id FROM experiments WHERE flag_key = ?)
+      `).bind(flagKey),
+      this.db.prepare(`
+        DELETE FROM experiment_metrics
+        WHERE experiment_id IN (SELECT id FROM experiments WHERE flag_key = ?)
+      `).bind(flagKey),
+      this.db.prepare("DELETE FROM experiments WHERE flag_key = ?").bind(flagKey),
+      this.db.prepare("DELETE FROM flag_evaluations WHERE flag_key = ?").bind(flagKey),
+      this.db.prepare("DELETE FROM feature_flags WHERE flag_key = ?").bind(flagKey),
+    ]);
+
+    await this.invalidateCache(flagKey);
+
+    return true;
   }
 
   async evaluateFlag(request: FlagEvaluationRequest): Promise<FlagEvaluationResponse> {

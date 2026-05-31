@@ -52,6 +52,7 @@ export interface FlagCreate {
 export interface FlagUpdate {
   name?: string;
   description?: string;
+  site_id?: string | null;
   enabled?: boolean;
   kill_switch?: boolean;
   default_value?: any;
