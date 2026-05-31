@@ -9,12 +9,14 @@
     storageKey: 'beacon_openfeature',
     storageDuration: 90,
     configCacheDuration: 5 * 60 * 1000,
+    bootstrap: null,
     debug: false
   };
 
   let evaluationContext = {};
   let cachedDetails = {};
   let latestDetailsByFlagKey = {};
+  let bootstrappedDetailsByFlagKey = {};
   let openFeatureConfig = null;
   let configExpiry = 0;
   let configPromise = null;
@@ -466,6 +468,38 @@
     saveToStorage();
   };
 
+  const normalizeBootstrapEvaluations = (evaluations) => {
+    if (Array.isArray(evaluations)) return evaluations;
+    if (evaluations && typeof evaluations === 'object') return Object.values(evaluations);
+    return [];
+  };
+
+  const applyBootstrap = (bootstrap) => {
+    if (!bootstrap || typeof bootstrap !== 'object') return;
+
+    if (bootstrap.context && typeof bootstrap.context === 'object') {
+      evaluationContext = {
+        ...evaluationContext,
+        ...bootstrap.context
+      };
+    }
+
+    if (typeof bootstrap.targetingKey === 'string' && bootstrap.targetingKey.trim()) {
+      evaluationContext.targetingKey = bootstrap.targetingKey.trim();
+    }
+
+    if (typeof bootstrap.siteId === 'string' && bootstrap.siteId.trim() && !BeaconOpenFeature.config.siteId) {
+      BeaconOpenFeature.config.siteId = bootstrap.siteId.trim();
+    }
+
+    for (const details of normalizeBootstrapEvaluations(bootstrap.evaluations)) {
+      if (!details || typeof details !== 'object' || typeof details.flagKey !== 'string') continue;
+
+      bootstrappedDetailsByFlagKey[details.flagKey] = details;
+      rememberDetails(details);
+    }
+  };
+
   const getDetails = async (flagKey, defaultValue, invocationContext = {}, options = {}) => {
     if (!isInitialized) {
       return createErrorDetails(flagKey, defaultValue, 'PROVIDER_NOT_READY', 'Beacon OpenFeature provider is not initialized');
@@ -482,6 +516,20 @@
 
     const flagValueType = options.flagValueType || getValueType(defaultValue);
     const cacheKey = stableStringify({ flagKey, defaultValue, context, flagValueType });
+
+    const bootstrappedDetails = bootstrappedDetailsByFlagKey[flagKey];
+    if (bootstrappedDetails) {
+      if (!matchesValueType(bootstrappedDetails.value, flagValueType)) {
+        return createErrorDetails(flagKey, defaultValue, 'TYPE_MISMATCH', `Resolved value for ${flagKey} did not match requested type ${flagValueType}`);
+      }
+
+      cachedDetails[cacheKey] = {
+        details: bootstrappedDetails,
+        expiry: Date.now() + (BeaconOpenFeature.config.storageDuration * 24 * 60 * 60 * 1000)
+      };
+      rememberDetails(bootstrappedDetails);
+      return bootstrappedDetails;
+    }
 
     const cached = cachedDetails[cacheKey];
     if (cached?.expiry > Date.now()) {
@@ -560,6 +608,7 @@
     evaluationContext = { ...context };
     cachedDetails = {};
     latestDetailsByFlagKey = {};
+    bootstrappedDetailsByFlagKey = {};
     saveToStorage();
   };
 
@@ -568,6 +617,7 @@
   const shutdown = () => {
     cachedDetails = {};
     latestDetailsByFlagKey = {};
+    bootstrappedDetailsByFlagKey = {};
     evaluationContext = {};
     openFeatureConfig = null;
     configExpiry = 0;
@@ -587,6 +637,7 @@
     init: async function(customConfig = {}) {
       this.config = { ...this.config, ...customConfig };
       loadFromStorage();
+      applyBootstrap(this.config.bootstrap);
       isInitialized = true;
       try {
         await loadOpenFeatureConfig();

@@ -3,6 +3,8 @@ import type { D1Database, KVNamespace } from "@cloudflare/workers-types";
 import type {
   FeatureFlag,
   FlagEvaluationResponse,
+  OpenFeatureBootstrapRequest,
+  OpenFeatureBootstrapResponse,
   OpenFeatureEvaluationDetails,
   OpenFeatureEvaluationRequest,
   OpenFeatureReason,
@@ -65,6 +67,23 @@ export class OpenFeatureService {
     }
 
     return this.evaluateFeatureFlag(flag, request, targetingKey, expectedType);
+  }
+
+  async bootstrap(request: OpenFeatureBootstrapRequest): Promise<OpenFeatureBootstrapResponse> {
+    const context = request.context || {};
+    const evaluations = await Promise.all(
+      request.evaluations.map(evaluation => this.evaluate({
+        ...evaluation,
+        context,
+      })),
+    );
+
+    return {
+      context,
+      evaluations: Object.fromEntries(
+        evaluations.map(details => [details.flagKey, details]),
+      ),
+    };
   }
 
   private async evaluateFeatureFlag(

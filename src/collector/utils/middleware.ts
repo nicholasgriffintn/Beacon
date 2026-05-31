@@ -19,12 +19,16 @@ function rateLimitedResponse(c: Context, result: RateLimitResult) {
 }
 
 function getOpenFeatureEvaluationScope(path: string, body?: Record<string, unknown>): string | null {
-  if (path !== "/api/openfeature/v1/evaluate") {
-    return null;
+  if (path === "/api/openfeature/v1/bootstrap") {
+    return "openfeature:bootstrap";
   }
 
-  const flagKey = body?.flagKey;
-  return typeof flagKey === "string" && flagKey ? `openfeature:${flagKey}` : "openfeature";
+  if (path === "/api/openfeature/v1/evaluate") {
+    const flagKey = body?.flagKey;
+    return typeof flagKey === "string" && flagKey ? `openfeature:${flagKey}` : "openfeature";
+  }
+
+  return null;
 }
 
 export async function validateSite(c: Context<{ Bindings: Env }>, siteId: string): Promise<{ valid: boolean; error?: string }> {
@@ -39,6 +43,20 @@ export async function validateSite(c: Context<{ Bindings: Env }>, siteId: string
   
   if (!validation.valid) {
     return { valid: false, error: validation.error };
+  }
+
+  return { valid: true };
+}
+
+async function validateSiteExists(c: Context<{ Bindings: Env }>, siteId: string): Promise<{ valid: boolean; error?: string }> {
+  if (!siteId) {
+    return { valid: false, error: "Site ID is required" };
+  }
+
+  const siteService = new SiteService(c.env.DB, c.env.CACHE_KV);
+  const site = await siteService.getSite(siteId);
+  if (!site) {
+    return { valid: false, error: "Site not found or inactive" };
   }
 
   return { valid: true };
@@ -77,7 +95,9 @@ export function createMiddleware() {
         return rateLimitedResponse(c, rateLimit);
       }
 
-      const validation = await validateSite(c, siteId);
+      const validation = hasValidApiKey(c)
+        ? await validateSiteExists(c, siteId)
+        : await validateSite(c, siteId);
       if (!validation.valid) {
         return c.json({ error: "Site validation failed" }, 403);
       }

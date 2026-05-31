@@ -175,6 +175,51 @@ test("enriches tracking events with the latest nested experiment metadata", asyn
   assert.equal(trackingEvent.properties.variant_id, "color_scheme_dark");
 });
 
+test("hydrates server-rendered OpenFeature decisions", async () => {
+  const { BeaconOpenFeature, trackedEvents } = createBeaconOpenFeature();
+  await BeaconOpenFeature.init({
+    endpoint: "https://beacon.polychat.app",
+    cdnEndpoint: "https://beacon-cdn.polychat.app",
+    siteId: "beacon-docs",
+    bootstrap: {
+      context: {
+        siteId: "beacon-docs",
+        targetingKey: "server-user-1",
+      },
+      evaluations: {
+        color_scheme: {
+          flagKey: "color_scheme",
+          value: { bgColor: "#111111" },
+          reason: "SPLIT",
+          variant: "color_scheme_dark",
+          flagMetadata: {
+            source: "feature_flag",
+            experiment_id: "exp_color_scheme",
+            variant_id: "color_scheme_dark",
+            variant_name: "dark",
+          },
+        },
+      },
+    },
+  });
+
+  const details = await BeaconOpenFeature.getObjectDetails("color_scheme", {});
+  BeaconOpenFeature.track("theme_apply", {}, {
+    flagKey: "color_scheme",
+    conversionId: "theme_apply",
+    value: 1,
+  });
+
+  const evaluationEvents = trackedEvents.filter(event => event.name === "feature_flag_evaluation");
+  const trackingEvent = trackedEvents.find(event => event.name === "feature_flag_tracking");
+
+  assert.equal(details.value.bgColor, "#111111");
+  assert.equal(details.variant, "color_scheme_dark");
+  assert.equal(evaluationEvents.length, 0);
+  assert.equal(trackingEvent.properties.experiment_id, "exp_color_scheme");
+  assert.equal(trackingEvent.properties.variant_id, "color_scheme_dark");
+});
+
 test("returns default error details before initialization", async () => {
   const { BeaconOpenFeature, configCalls } = createBeaconOpenFeature();
   const details = await BeaconOpenFeature.getBooleanDetails("ready_flag", false);

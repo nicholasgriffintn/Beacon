@@ -1,6 +1,7 @@
 import type {
   OpenFeatureErrorCode,
   OpenFeatureEvaluationDetails,
+  OpenFeatureEvaluationContext,
   OpenFeatureReason,
   OpenFeatureTrackingRequest,
   OpenFeatureValueType,
@@ -155,6 +156,56 @@ export function createOpenFeatureTrackingEvent(request: OpenFeatureTrackingReque
       flag_source: flagSource,
       experiment_id: stringifyOpenFeatureProperty(details.experimentId || properties.experiment_id),
       conversion_id: conversionId,
+      targeting_key: targetingKey,
+    },
+  };
+}
+
+export function createOpenFeatureEvaluationEvent(
+  details: OpenFeatureEvaluationDetails,
+  context: OpenFeatureEvaluationContext,
+): EventData | null {
+  const siteId = getSiteIdFromEvaluationContext(context);
+  const targetingKey = getTargetingKey(context);
+
+  if (!siteId || !targetingKey || details.reason === "ERROR") {
+    return null;
+  }
+
+  const flagSource = stringifyOpenFeatureProperty(details.flagMetadata.source);
+  const variantId = stringifyOpenFeatureProperty(details.flagMetadata.variant_id || details.variant);
+  const variantName = stringifyOpenFeatureProperty(details.flagMetadata.variant_name || details.variant);
+
+  return {
+    type: "event",
+    s: siteId,
+    ts: Date.now().toString(),
+    vtag: "openfeature-1",
+    r: "NA",
+    re: "NA",
+    lng: "NA",
+    title: "NA",
+    library_version: "beacon-openfeature",
+    app_name: "beacon",
+    app_type: "openfeature",
+    user_id: targetingKey,
+    p: "",
+    ref: "",
+    content_type: "openfeature",
+    event_name: "feature_flag_evaluation",
+    event_category: "openfeature",
+    event_label: details.flagKey,
+    event_value: 0,
+    non_interaction: true,
+    event_type: "evaluation",
+    properties: {
+      flag_key: details.flagKey,
+      flag_source: flagSource,
+      experiment_id: stringifyOpenFeatureProperty(details.flagMetadata.experiment_id),
+      variant: stringifyOpenFeatureProperty(details.variant),
+      variant_id: variantId,
+      variant_name: variantName,
+      reason: stringifyOpenFeatureProperty(details.reason),
       targeting_key: targetingKey,
     },
   };

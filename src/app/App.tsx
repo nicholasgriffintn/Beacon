@@ -9,6 +9,7 @@ const codeExamples = {
   analytics: `Beacon.init({
   endpoint: "https://beacon.nicholasgriffin.dev",
   siteId: "storefront",
+  userId: window.__BEACON_USER_ID__,
   trackPageViews: true,
   trackClicks: true,
   trackUserTimings: true,
@@ -38,12 +39,37 @@ Beacon.trackPageView({
   endpoint: "https://beacon.nicholasgriffin.dev",
   cdnEndpoint: "https://beacon-cdn.nicholasgriffin.dev",
   siteId: "storefront",
+  bootstrap: window.__BEACON_OPENFEATURE_BOOTSTRAP__,
 });
 
 const details = await BeaconOpenFeature.getObjectDetails(
   "checkout_flow",
   { layout: "control" }
 );`,
+  server: `const userId = cookies.get("beacon_user_id") ?? crypto.randomUUID();
+
+const bootstrap = await fetch(
+  "https://beacon.nicholasgriffin.dev/api/openfeature/v1/bootstrap",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": process.env.BEACON_API_KEY,
+    },
+    body: JSON.stringify({
+      context: { siteId: "storefront", targetingKey: userId },
+      evaluations: [
+        {
+          flagKey: "checkout_flow",
+          defaultValue: { layout: "control" },
+          flagValueType: "object",
+        },
+      ],
+    }),
+  }
+).then((response) => response.json());
+
+// Render userId and bootstrap into the page.`,
 };
 
 const workflowSteps = [
@@ -60,8 +86,8 @@ const workflowSteps = [
     detail: "Use the same event stream for traffic, conversion, interaction, and performance views.",
   },
   {
-    title: "Ship decisions",
-    detail: "Attach flags and experiments when you need controlled rollout and outcome measurement.",
+    title: "Pre-render decisions",
+    detail: "Evaluate flags and experiments on the server with the same user ID, then hydrate the browser from the bootstrap payload.",
   },
 ];
 
@@ -77,9 +103,9 @@ const analyticsCards = [
     detail: "Queue routine telemetry and send critical conversion events immediately.",
   },
   {
-    label: "Decision layer",
-    value: "Flags and experiments",
-    detail: "Use analytics data to evaluate product changes when you need controlled rollout.",
+    label: "Server decisions",
+    value: "Pre-render flags and experiments",
+    detail: "Resolve decisions before HTML is sent, then keep the browser on the same user and variant.",
   },
 ];
 
@@ -211,16 +237,17 @@ export default function App() {
           <div>
             <div className="section-heading">
               <p className="eyebrow">Developer setup</p>
-              <h2>Install analytics first. Add flags when decisions need rollout control.</h2>
+              <h2>Install analytics first. Pre-render decisions when the page needs them.</h2>
             </div>
             <p>
               The analytics client records page views and custom events immediately. Flag
-              clients can then reuse the same site identity and conversion stream for experiment results.
+              clients reuse the same site identity, user ID, and conversion stream whether
+              decisions are resolved in the browser or bootstrapped from your server.
             </p>
             <div className="principle-list">
               <span>Automatic page views</span>
               <span>Custom event tracking</span>
-              <span>Conversion joins</span>
+              <span>Server bootstrap</span>
             </div>
           </div>
 

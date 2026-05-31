@@ -6,7 +6,8 @@ import { getDeterministicBucket, isInPercentageBucket, stableStringify } from ".
 import { getCdnPublishHeaders, getCdnPublishScopesForMutation } from "./cdn-publish.ts";
 import { getHostnameFromUrl, isHostnameAllowed, isValidSiteDomain } from "./domains.ts";
 import { parseJsonRecord } from "./json.ts";
-import { createOpenFeatureTrackingEvent, matchesOpenFeatureValueType } from "./openfeature.ts";
+import { parseOpenFeatureBootstrapRequest } from "./openfeature-bootstrap.ts";
+import { createOpenFeatureEvaluationEvent, createOpenFeatureTrackingEvent, matchesOpenFeatureValueType } from "./openfeature.ts";
 import { checkRateLimit, getRateLimitKey } from "./rate-limit.ts";
 import { getVariantAllocationRanges, selectVariantForTargetingKey } from "./variant-allocation.ts";
 
@@ -18,6 +19,7 @@ test("protects management APIs while leaving client evaluation APIs public", () 
   assert.equal(isProtectedManagementPath("GET", "/api/experiments/client"), true);
   assert.equal(isProtectedManagementPath("PUT", "/api/experiments/exp_1"), true);
   assert.equal(isProtectedManagementPath("POST", "/api/openfeature/v1/evaluate"), false);
+  assert.equal(isProtectedManagementPath("POST", "/api/openfeature/v1/bootstrap"), false);
   assert.equal(isProtectedManagementPath("POST", "/api/openfeature/v1/track"), false);
   assert.equal(isProtectedManagementPath("GET", "/api/cdn/openfeature/latest"), false);
 });
@@ -129,6 +131,60 @@ test("maps OpenFeature tracking requests into analytics events", () => {
   assert.equal(event?.properties.flag_source, "feature_flag");
   assert.equal(event?.properties.experiment_id, "exp_home_hero_test");
   assert.equal(event?.properties.conversion_id, "signup_click");
+});
+
+test("maps bootstrapped OpenFeature decisions into exposure events", () => {
+  const event = createOpenFeatureEvaluationEvent({
+    flagKey: "home_hero_test",
+    value: { layout: "treatment" },
+    reason: "SPLIT",
+    variant: "variant_a",
+    flagMetadata: {
+      source: "feature_flag",
+      experiment_id: "exp_home_hero_test",
+      variant_id: "variant_a",
+      variant_name: "Treatment",
+    },
+  }, {
+    siteId: "beacon-docs",
+    targetingKey: "user-1",
+  });
+
+  assert.equal(event?.s, "beacon-docs");
+  assert.equal(event?.user_id, "user-1");
+  assert.equal(event?.event_name, "feature_flag_evaluation");
+  assert.equal(event?.event_label, "home_hero_test");
+  assert.equal(event?.properties.experiment_id, "exp_home_hero_test");
+  assert.equal(event?.properties.variant_id, "variant_a");
+  assert.equal(event?.properties.variant_name, "Treatment");
+});
+
+test("validates OpenFeature bootstrap requests", () => {
+  const parsed = parseOpenFeatureBootstrapRequest({
+    context: {
+      siteId: "beacon-docs",
+      targetingKey: "user-1",
+    },
+    evaluations: [
+      {
+        flagKey: "home_hero_test",
+        defaultValue: { layout: "default" },
+        flagValueType: "object",
+      },
+    ],
+  }, 25);
+
+  assert.equal(parsed.error, undefined);
+  assert.deepEqual(parsed.request?.evaluations[0], {
+    flagKey: "home_hero_test",
+    defaultValue: { layout: "default" },
+    flagValueType: "object",
+  });
+
+  assert.deepEqual(
+    parseOpenFeatureBootstrapRequest({ context: { targetingKey: "user-1" }, evaluations: [{ flagKey: "a" }] }, 25).error,
+    { message: "each evaluation must include defaultValue", status: 400 },
+  );
 });
 
 test("enforces fixed-window KV rate limits", async () => {

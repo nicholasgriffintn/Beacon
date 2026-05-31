@@ -19,6 +19,8 @@
     requireConsent: false,
     respectDoNotTrack: true,
     consentCookie: 'beacon_consent',
+    userIdStorageKey: 'beacon_user_id',
+    userId: '',
   };
 
   const hasConsent = () => {
@@ -107,10 +109,53 @@
   };
 
   const getUserId = () => {
-    if (!sessionUserId) {
-      sessionUserId = generateId();
+    if (sessionUserId) {
+      return sessionUserId;
     }
+
+    try {
+      const storedUserId = localStorage.getItem(Beacon.config.userIdStorageKey);
+      if (storedUserId) {
+        sessionUserId = storedUserId;
+        return sessionUserId;
+      }
+
+      const cookieUserId = getCookie(Beacon.config.userIdStorageKey);
+      if (cookieUserId) {
+        sessionUserId = cookieUserId;
+        localStorage.setItem(Beacon.config.userIdStorageKey, cookieUserId);
+        return sessionUserId;
+      }
+    } catch {
+      // Storage can be unavailable in strict browser privacy modes.
+    }
+
+    sessionUserId = generateId();
+
+    try {
+      localStorage.setItem(Beacon.config.userIdStorageKey, sessionUserId);
+      setCookie(Beacon.config.userIdStorageKey, sessionUserId, 365);
+    } catch {
+      // Keep the in-memory ID for this page view when persistence is unavailable.
+    }
+
     return sessionUserId;
+  };
+
+  const setUserId = (userId) => {
+    const nextUserId = String(userId || '').trim();
+    if (!nextUserId) return false;
+
+    sessionUserId = nextUserId;
+
+    try {
+      localStorage.setItem(Beacon.config.userIdStorageKey, nextUserId);
+      setCookie(Beacon.config.userIdStorageKey, nextUserId, 365);
+    } catch {
+      // The in-memory ID still keeps this page view internally consistent.
+    }
+
+    return true;
   };
 
   const getScreenDimensions = () => {
@@ -372,6 +417,10 @@
         return;
       }
 
+      if (this.config.userId) {
+        setUserId(this.config.userId);
+      }
+
       if (this.config.trackPageViews) {
         trackPageView();
 
@@ -415,7 +464,8 @@
     trackPageView,
     setConsent,
     hasConsent,
-    getUserId
+    getUserId,
+    setUserId
   };
 
   window.Beacon = Beacon;

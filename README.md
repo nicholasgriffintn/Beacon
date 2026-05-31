@@ -146,6 +146,7 @@ podman compose up
 - `GET /api/openfeature/v1/provider/metadata` - Get provider metadata
 - `GET /api/openfeature/v1/provider/status` - Get provider readiness
 - `POST /api/openfeature/v1/evaluate` - Evaluate a flag, including any running experiment nested under it, for server-side OpenFeature clients
+- `POST /api/openfeature/v1/bootstrap` - Evaluate multiple flags for server-rendered pages and record exposure events for experiment results
 - `POST /api/openfeature/v1/track` - Record OpenFeature tracking calls through the analytics event pipeline
 
 #### CDN Publishing
@@ -228,6 +229,8 @@ Include the script in your HTML:
 - **requireConsent**: Require user consent before tracking (default: false)
 - **respectDoNotTrack**: Respect browser Do Not Track setting (default: true)
 - **consentCookie**: Name of the cookie used to store consent (default: 'beacon_consent')
+- **userIdStorageKey**: Storage key used to keep a stable analytics and experiment user ID across page reloads (default: 'beacon_user_id')
+- **userId**: Stable user ID supplied by a server-rendered page. Beacon persists it and uses it for analytics and experiment targeting.
 - **appName**: Name of your application (defaults to document.title)
 
 ## Basic Usage
@@ -295,7 +298,7 @@ Beacon.init({
 
 Beacon exposes feature flags and experiments through one OpenFeature provider surface. Feature flags are the canonical OpenFeature flags. Experiments attach to a flag and allocate that flag's variations while the experiment is running.
 
-The browser provider loads published definitions from the CDN at `/config/v1/openfeature/latest.json`. It does not call the evaluation API for browser-side flag resolution. The Worker OpenFeature API remains available for server-side clients that cannot use the static CDN config.
+The browser provider loads published definitions from the CDN at `/config/v1/openfeature/latest.json`. It does not call the evaluation API for browser-side flag resolution. Server-rendered pages can call the Worker bootstrap API, render the returned decisions into HTML, and hydrate the browser from that payload.
 
 ### Initialization
 
@@ -392,6 +395,59 @@ BeaconOpenFeature.track('signup_click', {}, {
   flagSource: 'feature_flag',
   conversionId: 'signup_click',
   value: 1
+});
+```
+
+### Server Pre-rendered Decisions
+
+Use bootstrap when a server-rendered page needs the flag or experiment decision before HTML is sent. Read or create the `beacon_user_id` value on the server, call the bootstrap endpoint with that value as `context.targetingKey`, then render both the user ID and the bootstrap payload into the page.
+
+```javascript
+const userId = cookies.get('beacon_user_id') || crypto.randomUUID();
+
+const bootstrap = await fetch('https://<your-worker-url>/api/openfeature/v1/bootstrap', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': process.env.BEACON_API_KEY
+  },
+  body: JSON.stringify({
+    context: {
+      siteId: 'YOUR_SITE_ID',
+      targetingKey: userId
+    },
+    evaluations: [
+      {
+        flagKey: 'home_hero_test',
+        defaultValue: { layout: 'default', showCta: false },
+        flagValueType: 'object'
+      }
+    ]
+  })
+}).then(response => response.json());
+```
+
+Set the same user ID on the response cookie, for example `Set-Cookie: beacon_user_id=<id>; Path=/; SameSite=Lax; Max-Age=31536000`, and pass the payload to the browser client. The client keeps that user ID in `beacon_user_id`, uses the bootstrapped decision before any cached local decision, and does not emit a duplicate exposure event.
+
+```html
+<script>
+  window.__BEACON_USER_ID__ = "server-user-id";
+  window.__BEACON_OPENFEATURE_BOOTSTRAP__ = bootstrapPayload;
+</script>
+```
+
+```javascript
+Beacon.init({
+  siteId: 'YOUR_SITE_ID',
+  endpoint: 'https://<your-worker-url>',
+  userId: window.__BEACON_USER_ID__
+});
+
+await BeaconOpenFeature.init({
+  endpoint: 'https://<your-worker-url>',
+  cdnEndpoint: 'https://<your-cdn-url>',
+  siteId: 'YOUR_SITE_ID',
+  bootstrap: window.__BEACON_OPENFEATURE_BOOTSTRAP__
 });
 ```
 

@@ -11,9 +11,16 @@ export const DEMO_TARGETING_KEYS: Record<DemoThemeVariant, string> = {
   dark: "demo-dark",
 };
 
-function readStringValue(record: Record<string, unknown>, key: string, fallback: string): string {
+const SAFE_COLOR_PATTERN = /^(#[0-9a-fA-F]{3,8}|rgba?\([0-9.,% /]+\)|hsla?\([0-9.,% /deg]+\)|transparent|currentColor)$/;
+
+function readColorValue(record: Record<string, unknown>, key: string, fallback: string): string {
   const value = record[key];
-  return typeof value === "string" && value.trim() ? value : fallback;
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const trimmed = value.trim();
+  return SAFE_COLOR_PATTERN.test(trimmed) ? trimmed : fallback;
 }
 
 export function getDemoThemeVariant(details: DemoThemeDetails): DemoThemeVariant {
@@ -34,11 +41,11 @@ export function createDemoThemeTokens(details: DemoThemeDetails): Record<string,
 
   if (variant === "dark") {
     return {
-      "--page": readStringValue(config, "bgColor", "#101817"),
+      "--page": readColorValue(config, "bgColor", "#101817"),
       "--page-soft": "#16211f",
-      "--ink": readStringValue(config, "textColor", "#e5e7eb"),
+      "--ink": readColorValue(config, "textColor", "#e5e7eb"),
       "--muted": "#a7b2ad",
-      "--line": readStringValue(config, "borderColor", "#374151"),
+      "--line": readColorValue(config, "borderColor", "#374151"),
       "--panel": "rgba(19, 29, 27, 0.92)",
       "--panel-strong": "#17211f",
       "--nav": "#081210",
@@ -57,18 +64,18 @@ export function createDemoThemeTokens(details: DemoThemeDetails): Record<string,
   }
 
   return {
-    "--page": readStringValue(config, "bgColor", "#f4efe6"),
+    "--page": readColorValue(config, "bgColor", "#f4efe6"),
     "--page-soft": "#fffaf0",
-    "--ink": readStringValue(config, "textColor", "#161817"),
+    "--ink": readColorValue(config, "textColor", "#161817"),
     "--muted": "#6b6258",
-    "--line": readStringValue(config, "borderColor", "#d8cab8"),
+    "--line": readColorValue(config, "borderColor", "#d8cab8"),
     "--panel": "rgba(255, 252, 246, 0.9)",
     "--panel-strong": "#fffdf8",
     "--nav": "#10201d",
     "--nav-2": "#1b302b",
     "--accent": "#008f83",
-    "--code-bg": readStringValue(config, "codeBg", "#111918"),
-    "--code-text": readStringValue(config, "codeText", "#d9fff5"),
+    "--code-bg": readColorValue(config, "codeBg", "#111918"),
+    "--code-text": readColorValue(config, "codeText", "#d9fff5"),
     "--body-accent": "rgba(0, 143, 131, 0.18)",
     "--body-start": "#f7eddb",
     "--body-mid": "#fffaf0",

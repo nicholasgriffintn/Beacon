@@ -9,71 +9,19 @@ const SHOULD_TRACK_CLICKS = true;
 const SHOULD_TRACK_USER_TIMINGS = true;
 const RESPECT_DO_NOT_TRACK = false;
 
-declare global {
-  interface Window {
-    Beacon?: {
-      version: string;
-      config: Record<string, string>;
-      init: (config: {
-        endpoint: string;
-        cdnEndpoint?: string;
-        siteId: string;
-        debug: boolean;
-        trackClicks: boolean;
-        trackUserTimings: boolean;
-        respectDoNotTrack: boolean;
-        directEvents?: boolean;
-        directPageViews?: boolean;
-        batchSize?: number;
-        batchTimeout?: number;
-      }) => void;
-      trackEvent: (event: {
-        name: string;
-        category: string;
-        label?: string;
-        value?: number | string;
-        non_interaction?: boolean;
-        properties?: Record<string, string>;
-      }) => void;
-      trackPageView: (pageView: {
-        content_type?: string;
-        virtual_pageview?: boolean;
-        properties?: Record<string, string>;
-      }) => void;
-      setConsent: (consent: boolean) => void;
-      hasConsent: () => boolean;
-      getUserId: () => string;
-    };
-    _beaconInitialized?: boolean;
-    _openFeatureInitialized?: boolean;
-    BeaconOpenFeature?: {
-      init: (config: {
-        endpoint: string;
-        cdnEndpoint?: string;
-        siteId?: string;
-        debug: boolean;
-      }) => Promise<unknown>;
-      getObjectDetails: (
-        flagKey: string,
-        defaultValue: Record<string, string>,
-        context?: Record<string, unknown>,
-      ) => Promise<{
-        flagKey: string;
-        value: Record<string, string>;
-        variant?: string;
-        reason?: string;
-        errorCode?: string;
-        errorMessage?: string;
-        flagMetadata: Record<string, string | number | boolean>;
-      }>;
-      track: (
-        trackingEventName: string,
-        context?: Record<string, unknown>,
-        details?: Record<string, unknown>,
-      ) => void;
-    };
-    OpenFeature?: Window["BeaconOpenFeature"];
-  }
+interface AnalyticsProps {
+  isEnabled?: boolean;
+  isExperimentsEnabled?: boolean;
+  beaconEndpoint?: string;
+  beaconCdnEndpoint?: string;
+  beaconSiteId?: string;
+  beaconDebug?: boolean;
+  directEvents?: boolean;
+  directPageViews?: boolean;
+  batchSize?: number;
+  batchTimeout?: number;
+  beaconUserId?: string;
+  openFeatureBootstrap?: OpenFeatureBootstrap;
 }
 
 export function Analytics({
@@ -86,17 +34,9 @@ export function Analytics({
   directPageViews = true,
   batchSize = 10,
   batchTimeout = 5000,
-}: {
-  isEnabled?: boolean;
-  beaconEndpoint?: string;
-  beaconCdnEndpoint?: string;
-  beaconSiteId?: string;
-  beaconDebug?: boolean;
-  directEvents?: boolean;
-  directPageViews?: boolean;
-  batchSize?: number;
-  batchTimeout?: number;
-}) {
+  beaconUserId,
+  openFeatureBootstrap,
+}: AnalyticsProps) {
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only react to enabled state
   useEffect(() => {
     if (!isEnabled) {
@@ -104,7 +44,7 @@ export function Analytics({
     }
 
     if (
-      window._beaconInitialized ||
+      window.__BEACON_INITALISED__ ||
       document.querySelector(
         `script[src="${beaconEndpoint}/beacon.min.js"]`,
       )
@@ -112,7 +52,7 @@ export function Analytics({
       return;
     }
 
-    window._beaconInitialized = true;
+    window.__BEACON_INITALISED__ = true;
 
     const script = document.createElement("script");
     script.src = `${beaconEndpoint}/beacon.min.js`;
@@ -132,6 +72,7 @@ export function Analytics({
           directPageViews,
           batchSize,
           batchTimeout,
+          userId: beaconUserId || window.__BEACON_USER_ID__,
         });
       }
     };
@@ -148,7 +89,7 @@ export function Analytics({
     }
 
     if (
-      window._openFeatureInitialized ||
+      window.__OPEN_FEATURE_INITALISED__ ||
       document.querySelector(
         `script[src="${beaconEndpoint}/exp-beacon.min.js"]`,
       )
@@ -156,7 +97,7 @@ export function Analytics({
       return;
     }
 
-    window._openFeatureInitialized = true;
+    window.__OPEN_FEATURE_INITALISED__ = true;
 
     const script = document.createElement("script");
     script.src = `${beaconEndpoint}/exp-beacon.min.js`;
@@ -169,6 +110,7 @@ export function Analytics({
           endpoint: beaconEndpoint,
           cdnEndpoint: beaconCdnEndpoint,
           siteId: beaconSiteId,
+          bootstrap: openFeatureBootstrap || window.__BEACON_OPENFEATURE_BOOTSTRAP__,
         });
       }
     };

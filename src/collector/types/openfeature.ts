@@ -37,6 +37,22 @@ export interface OpenFeatureEvaluationRequest {
   flagValueType?: OpenFeatureValueType;
 }
 
+export interface OpenFeatureBootstrapEvaluationRequest {
+  flagKey: string;
+  defaultValue: unknown;
+  flagValueType?: OpenFeatureValueType;
+}
+
+export interface OpenFeatureBootstrapRequest {
+  context: OpenFeatureEvaluationContext;
+  evaluations: OpenFeatureBootstrapEvaluationRequest[];
+}
+
+export interface OpenFeatureBootstrapResponse {
+  context: OpenFeatureEvaluationContext;
+  evaluations: Record<string, OpenFeatureEvaluationDetails>;
+}
+
 export interface OpenFeatureEvaluationDetails {
   flagKey: string;
   value: unknown;
