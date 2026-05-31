@@ -44,7 +44,7 @@ export function useExperiments() {
     async (experiments: Experiment[]) => {
       await waitForBeaconExperiments();
       if (window.BeaconExperiments) {
-        window.BeaconExperiments.defineExperimentBehaviors(experiments);
+        return window.BeaconExperiments.defineExperimentBehaviors(experiments);
       }
     },
     [waitForBeaconExperiments],
@@ -54,7 +54,7 @@ export function useExperiments() {
     async (experimentId: string) => {
       await waitForBeaconExperiments();
       if (window.BeaconExperiments) {
-        window.BeaconExperiments.activate(experimentId);
+        return window.BeaconExperiments.activate(experimentId);
       }
     },
     [waitForBeaconExperiments],
@@ -74,7 +74,7 @@ export function useExperiments() {
     async (experimentId: string, variantId: string) => {
       await waitForBeaconExperiments();
       if (window.BeaconExperiments) {
-        window.BeaconExperiments.forceVariant(experimentId, variantId);
+        return window.BeaconExperiments.forceVariant(experimentId, variantId);
       }
     },
     [waitForBeaconExperiments],

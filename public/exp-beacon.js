@@ -14,6 +14,7 @@
   };
 
   let experimentAssignments = {};
+  const pendingVariantRequests = {};
   const experimentBehaviors = {};
   let isInitialized = false;
 
@@ -146,7 +147,11 @@
 
     const userId = getExperimentUserId();
 
-    try {
+    if (pendingVariantRequests[experimentId]) {
+      return pendingVariantRequests[experimentId];
+    }
+
+    pendingVariantRequests[experimentId] = (async () => {
       const response = await fetch(`${BeaconExperiments.config.endpoint}/api/experiments/${experimentId}/assign`, {
         method: 'POST',
         headers: {
@@ -192,11 +197,17 @@
       }
 
       return assignment;
+    })();
+
+    try {
+      return await pendingVariantRequests[experimentId];
     } catch (error) {
       if (BeaconExperiments.config.debug) {
         console.error('BeaconExperiments: Error getting variant', error);
       }
       return null;
+    } finally {
+      delete pendingVariantRequests[experimentId];
     }
   };
 

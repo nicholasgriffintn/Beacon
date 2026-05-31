@@ -62,11 +62,11 @@ declare global {
         debug: boolean;
       }) => void;
       defineExperimentBehaviors: (experiments: Experiment[]) => void;
-      activate: (experimentId: string) => void;
-      getVariant: (experimentId: string) => {
+      activate: (experimentId: string) => Promise<boolean>;
+      getVariant: (experimentId: string) => Promise<{
         variant_id: string;
         config: Record<string, string>;
-      };
+      } | null>;
       forceVariant: (experimentId: string, variantId: string) => void;
     };
   }
