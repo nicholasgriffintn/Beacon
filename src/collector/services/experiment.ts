@@ -8,6 +8,8 @@ import type {
   Variant,
   VariantAssignment
 } from '../types';
+import { getDeterministicBucket } from '../utils/bucketing';
+import { InputValidationError } from '../utils/errors';
 
 export class ExperimentService {
   constructor(private readonly db: D1Database) {}
@@ -36,7 +38,7 @@ export class ExperimentService {
     let variants: Variant[] = [];
     try {
       const parsedVariants = JSON.parse(result.variants as string);
-      variants = parsedVariants[0]?.id ? parsedVariants : [];
+      variants = parsedVariants[0]?.id ? parsedVariants.map(this.normalizeVariant) : [];
     } catch (error) {
       console.error('Error parsing variants:', error);
     }
@@ -75,7 +77,7 @@ export class ExperimentService {
       let variants: Variant[] = [];
       try {
         const parsedVariants = JSON.parse(result.variants as string);
-        variants = parsedVariants[0]?.id ? parsedVariants : [];
+        variants = parsedVariants[0]?.id ? parsedVariants.map(this.normalizeVariant) : [];
       } catch (error) {
         console.error('Error parsing variants:', error);
       }
@@ -91,6 +93,8 @@ export class ExperimentService {
   }
 
   async createExperiment(experimentData: ExperimentCreate): Promise<Experiment> {
+    this.validateExperimentCreate(experimentData);
+
     const id = crypto.randomUUID();
     
     await this.db.prepare('BEGIN TRANSACTION').run();
@@ -110,7 +114,7 @@ export class ExperimentService {
         'draft',
         experimentData.site_id || null,
         JSON.stringify(experimentData.targeting_rules || {}),
-        experimentData.traffic_allocation || 100,
+        experimentData.traffic_allocation ?? 100,
         experimentData.start_time || null,
         experimentData.end_time || null
       ).run();
@@ -147,6 +151,10 @@ export class ExperimentService {
   async updateExperiment(id: string, update: ExperimentUpdate): Promise<Experiment | null> {
     const experiment = await this.getExperiment(id);
     if (!experiment) return null;
+
+    if (update.traffic_allocation !== undefined) {
+      this.validatePercentage(update.traffic_allocation, "traffic_allocation");
+    }
 
     const updates: string[] = [];
     const values: unknown[] = [];
@@ -203,7 +211,7 @@ export class ExperimentService {
 
   async assignVariant(experimentId: string, userContext: UserContext): Promise<VariantAssignment | { message: string }> {
     const experiment = await this.getExperiment(experimentId);
-    if (!experiment || experiment.status !== 'running') {
+    if (!experiment || !this.isAssignable(experiment)) {
       return {
         message: 'Experiment not found or not running'
       };
@@ -260,27 +268,80 @@ export class ExperimentService {
   }
 
   private determineVariant(experiment: Experiment, userContext: UserContext): Variant | null {
-    const hash = this.hashString(`${userContext.user_id}:${experiment.id}`);
-    const normalizedHash = Number.parseInt(hash.substring(0, 8), 16) / 0xffffffff;
+    const experimentBucket = getDeterministicBucket(`${experiment.id}:${userContext.user_id}:allocation`);
+    if (experimentBucket >= experiment.traffic_allocation) {
+      return null;
+    }
+
+    const variantBucket = getDeterministicBucket(`${experiment.id}:${userContext.user_id}:variant`);
     
     let cumulative = 0;
     for (const variant of experiment.variants) {
-      cumulative += variant.traffic_percentage / 100;
-      if (normalizedHash < cumulative) {
+      cumulative += variant.traffic_percentage;
+      if (variantBucket < cumulative) {
         return variant;
       }
     }
     
-    return experiment.variants[0] || null;
+    return null;
   }
 
-  private hashString(str: string): string {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+  private normalizeVariant(variant: Variant): Variant {
+    return {
+      ...variant,
+      config: typeof variant.config === "string"
+        ? JSON.parse(variant.config)
+        : variant.config || {},
+    };
+  }
+
+  private isAssignable(experiment: Experiment): boolean {
+    if (experiment.status !== 'running') {
+      return false;
     }
-    return Math.abs(hash).toString(16);
+
+    const now = Date.now();
+
+    if (experiment.start_time && Date.parse(experiment.start_time) > now) {
+      return false;
+    }
+
+    if (experiment.end_time && Date.parse(experiment.end_time) <= now) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private validateExperimentCreate(experimentData: ExperimentCreate): void {
+    if (!experimentData.name) {
+      throw new InputValidationError("name is required");
+    }
+
+    this.validatePercentage(experimentData.traffic_allocation ?? 100, "traffic_allocation");
+
+    if (!Array.isArray(experimentData.variants) || experimentData.variants.length < 2) {
+      throw new InputValidationError("experiments require at least two variants");
+    }
+
+    let totalTraffic = 0;
+    for (const variant of experimentData.variants) {
+      if (!variant.name) {
+        throw new InputValidationError("each variant requires a name");
+      }
+
+      this.validatePercentage(variant.traffic_percentage, "variant traffic_percentage");
+      totalTraffic += variant.traffic_percentage;
+    }
+
+    if (Math.round(totalTraffic * 100) / 100 !== 100) {
+      throw new InputValidationError("variant traffic_percentage values must sum to 100");
+    }
+  }
+
+  private validatePercentage(value: number, field: string): void {
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      throw new InputValidationError(`${field} must be between 0 and 100`);
+    }
   }
 } 

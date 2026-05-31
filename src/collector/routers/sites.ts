@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 
 import type { Env, SiteCreate, SiteUpdate } from "../types";
 import { SiteService } from "../services/site";
+import { InputValidationError } from "../utils/errors";
 
 const sitesRouter = new Hono<{ Bindings: Env }>();
 
@@ -35,6 +36,9 @@ sitesRouter.post("/", async (c: Context) => {
     return c.json(site, 201);
   } catch (error) {
     console.error(error);
+    if (error instanceof InputValidationError) {
+      return c.json({ error: error.message }, 400);
+    }
     return c.json({ error: "Error creating site" }, 500);
   }
 });
@@ -74,6 +78,9 @@ sitesRouter.put("/:siteId", async (c: Context) => {
     return c.json(site);
   } catch (error) {
     console.error(error);
+    if (error instanceof InputValidationError) {
+      return c.json({ error: error.message }, 400);
+    }
     return c.json({ error: "Error updating site" }, 500);
   }
 });

@@ -95,6 +95,10 @@
   let sessionUserId = null;
 
   const generateId = () => {
+    if (window.crypto?.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
       const r = (Math.random() * 16) | 0;
       const v = c === 'x' ? r : (r & 0x3) | 0x8;
@@ -242,7 +246,7 @@
 
     const {
       content_type = 'page',
-      virtual_page_view = false,
+      virtual_pageview = params.virtual_page_view || false,
       properties = {}
     } = params;
 
@@ -252,7 +256,7 @@
       path: window.location.pathname,
       title: document.title,
       content_type,
-      virtual_page_view,
+      virtual_pageview,
       properties,
     };
 
@@ -312,7 +316,10 @@
         name: 'click',
         category: 'link',
         label: linkText,
-        value: href
+        value: 0,
+        properties: {
+          href
+        }
       });
     });
   };
@@ -407,7 +414,8 @@
     trackEvent,
     trackPageView,
     setConsent,
-    hasConsent
+    hasConsent,
+    getUserId
   };
 
   window.Beacon = Beacon;

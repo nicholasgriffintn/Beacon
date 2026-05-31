@@ -7,6 +7,7 @@
   // Experiment configuration defaults
   const defaultConfig = {
     endpoint: 'https://beacon.nickgriffin.uk',
+    siteId: '',
     storageKey: 'beacon_experiments',
     storageDuration: 90, // days
     debug: false
@@ -72,25 +73,54 @@
       return window.Beacon.getUserId();
     }
     
-    let userId = localStorage.getItem('beacon_experiment_user_id');
-    if (!userId) {
-      userId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      });
-      localStorage.setItem('beacon_experiment_user_id', userId);
+    try {
+      let userId = localStorage.getItem('beacon_experiment_user_id');
+      if (!userId) {
+        userId = generateUserId();
+        localStorage.setItem('beacon_experiment_user_id', userId);
+      }
+      return userId;
+    } catch {
+      return generateUserId();
     }
-    return userId;
+  };
+
+  const generateUserId = () => {
+    if (window.crypto?.randomUUID) {
+      return window.crypto.randomUUID();
+    }
+
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0;
+      const v = c === 'x' ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  };
+
+  const getSiteId = () => {
+    return BeaconExperiments.config.siteId || window.Beacon?.config?.siteId || '';
   };
 
   const fetchExperiments = async () => {
+    const siteId = getSiteId();
+
+    if (!siteId) {
+      if (BeaconExperiments.config.debug) {
+        console.warn('BeaconExperiments: siteId is required to fetch experiments');
+      }
+      return [];
+    }
+
     try {
-      const response = await fetch(`${BeaconExperiments.config.endpoint}/api/experiments`);
+      const response = await fetch(
+        `${BeaconExperiments.config.endpoint}/api/cdn/experiments/latest?site_id=${encodeURIComponent(siteId)}`
+      );
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+
+      const config = await response.json();
+      return Array.isArray(config.experiments) ? config.experiments : [];
     } catch (error) {
       if (BeaconExperiments.config.debug) {
         console.error('BeaconExperiments: Error fetching experiments', error);
@@ -133,6 +163,13 @@
       }
 
       const assignment = await response.json();
+
+      if (!assignment?.variant_id) {
+        if (BeaconExperiments.config.debug) {
+          console.warn(`BeaconExperiments: No variant assigned for experiment "${experimentId}"`, assignment);
+        }
+        return null;
+      }
       
       experimentAssignments[experimentId] = {
         variant: assignment,
@@ -223,10 +260,11 @@
 
   const activateAll = async () => {
     const experiments = await fetchExperiments();
-    
-    const activationPromises = experiments
-      .filter(exp => experimentBehaviors[exp.id]?.autoActivate)
-      .map(exp => activate(exp.id));
+    const activeExperimentIds = new Set(experiments.map(experiment => experiment.id));
+
+    const activationPromises = Object.entries(experimentBehaviors)
+      .filter(([experimentId, behavior]) => behavior?.autoActivate && activeExperimentIds.has(experimentId))
+      .map(([experimentId]) => activate(experimentId));
 
     await Promise.all(activationPromises);
   };
@@ -313,6 +351,7 @@
     },
     
     defineExperimentBehaviors,
+    fetchExperiments,
     activate,
     activateAll,
     getVariant,

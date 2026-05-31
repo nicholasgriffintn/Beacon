@@ -4,11 +4,13 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "pnpm run minify-beacons && vite build",
-		"deploy": "vite build && wrangler deploy",
+		"build": "pnpm run typecheck && pnpm run minify-beacons && vite build",
+		"deploy": "pnpm run build && wrangler deploy",
 		"dev": "vite",
 		"preview": "vite preview",
 		"minify-beacons": "terser public/beacon.js -o public/beacon.min.js && terser public/exp-beacon.js -o public/exp-beacon.min.js",
+		"test": "node --experimental-strip-types --test \"src/**/*.test.mjs\"",
+		"typecheck": "tsc -b --pretty false",
 		"db:apply": "wrangler d1 migrations apply analytics-database"
 	},
 	"devDependencies": {

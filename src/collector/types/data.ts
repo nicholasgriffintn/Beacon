@@ -22,8 +22,9 @@ export interface EventData {
   event_name: string;
   event_category: string;
   event_label: string;
-  event_value: number;
+  event_value: number | string;
   virtual_pageview?: boolean;
+  virtual_page_view?: boolean;
   non_interaction?: boolean;
   event_type: string;
   properties: Record<string, string>;
@@ -46,8 +47,8 @@ export interface DeviceInfo {
   os: string;
   device: string;
   user_agent: string;
-  screen?: ScreenDimensions;
-  viewport?: ScreenDimensions;
+  screen?: string;
+  viewport?: string;
 }
 
 export interface AnalyticsEventData {
@@ -92,4 +93,3 @@ export interface AnalyticsFullEventData extends AnalyticsEventData {
   experiment_assignments?: string;
   data_type: string;
 }
-

@@ -1,6 +1,17 @@
 import type { Context } from "hono";
 
-import { handleCacheHeaders, hasUserBounced, extractDeviceInfo, parseScreenDimensions, formatScreenDimensions } from "../utils";
+import {
+  anonymizeIp,
+  extractDeviceInfo,
+  formatScreenDimensions,
+  getOriginFromHeaders,
+  getPathFromUrl,
+  handleCacheHeaders,
+  hasUserBounced,
+  parseScreenDimensions,
+  toBoolean,
+  toEventNumber,
+} from "../utils";
 import type { AnalyticsEventData, BatchEventData, EventData } from "../types/data";
 
 export function collectCommonAnalyticsData(c: Context, eventData: EventData | BatchEventData, isPageView = true): {
@@ -9,12 +20,14 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
 } {
   const userAgent = c.req.header("user-agent");
   const ifModifiedSince = c.req.header('if-modified-since');
-  const ip = c.req.raw.headers.get('X-Forwarded-For') || 'unknown';
-  const refererUrl = c.req.header("referer");
-  const url = refererUrl;
-  const url_path = refererUrl
-    ? new URL(refererUrl).pathname
-    : new URL(c.req.url).pathname;
+  const ip = anonymizeIp(
+    c.req.raw.headers.get("CF-Connecting-IP") ||
+      c.req.raw.headers.get("X-Forwarded-For") ||
+      "unknown",
+  );
+  const requestOrigin = getOriginFromHeaders(c.req.raw.headers);
+  const url = requestOrigin || c.req.url;
+  const urlPath = getPathFromUrl(requestOrigin) || getPathFromUrl(c.req.url) || "";
 
   const {
     s: siteId = "NA",
@@ -29,19 +42,22 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
     app_type: appType = "NA",
     user_id: userId = "NA",
     p: pagePath = "",
-    ref: referrer = referer || "NA",
+    ref: referrer = requestOrigin || "NA",
     event_name: rawEventName = "NA",
     event_category: rawEventCategory = "interaction",
     event_label: rawEventLabel = "NA",
-    event_value: eventValue = 0,
+    event_value: rawEventValue = 0,
     non_interaction: nonInteraction = false,
-    virtual_pageview: virtualPageview = false,
+    virtual_pageview: rawVirtualPageview = false,
+    virtual_page_view: rawLegacyVirtualPageview = false,
     event_type: eventType = "NA",
     properties = {},
   } = eventData;
 
   const eventName = rawEventName !== "NA" ? rawEventName : "unknown_event";
   const eventCategory = rawEventCategory !== "interaction" ? rawEventCategory : "general";
+  const eventValue = toEventNumber(rawEventValue);
+  const virtualPageview = toBoolean(rawVirtualPageview) || toBoolean(rawLegacyVirtualPageview);
 
   let eventLabel = rawEventLabel;
   if (eventLabel === "NA" || !eventLabel) {
@@ -91,7 +107,7 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
       event_category: eventCategory,
       event_label: eventLabel,
       event_value: eventValue,
-      non_interaction: nonInteraction,
+      non_interaction: toBoolean(nonInteraction),
       virtual_pageview: virtualPageview,
       event_type: eventType,
     },
@@ -112,7 +128,7 @@ export function collectCommonAnalyticsData(c: Context, eventData: EventData | Ba
     referrer: referrer || "NA",
     page: {
       url,
-      path: pagePath || url_path,
+      path: pagePath || urlPath,
     },
     ip,
     properties: properties,

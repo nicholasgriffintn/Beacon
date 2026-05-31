@@ -15,7 +15,28 @@ eventsRouter.post("/batch", async (c: Context) => {
     return c.json({ error: "Invalid JSON payload" }, 400);
   }
 
-  const { success, processed, nextLastModifiedDate } = await handleBatch(c, batchData);
+  const { success, processed, nextLastModifiedDate, error, status } = await handleBatch(c, batchData);
+
+  if (!success) {
+    const responseBody = {
+      success,
+      processed,
+      error
+    };
+
+    if (status === 413) {
+      return c.json(responseBody, 413);
+    }
+
+    if (status === 502) {
+      return c.json(responseBody, 502);
+    }
+
+    return c.json(
+      responseBody,
+      400
+    );
+  }
 
   return c.json(
     {
@@ -43,7 +64,23 @@ eventsRouter.post("/collect", async (c: Context) => {
     return c.json({ error: "Invalid JSON payload" }, 400);
   }
 
-  const { success, nextLastModifiedDate } = await handleEvent(c, eventData);
+  const { success, nextLastModifiedDate, error, status } = await handleEvent(c, eventData);
+
+  if (!success) {
+    const responseBody = {
+      success,
+      error
+    };
+
+    if (status === 502) {
+      return c.json(responseBody, 502);
+    }
+
+    return c.json(
+      responseBody,
+      400
+    );
+  }
 
   return c.json(
     { success },

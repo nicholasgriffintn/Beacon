@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 
 import type { Env, ExperimentCreate, ExperimentUpdate, UserContext } from "../types";
 import { ExperimentService } from "../services/experiment";
+import { InputValidationError } from "../utils/errors";
 
 const experimentsRouter = new Hono<{ Bindings: Env }>();
 
@@ -31,6 +32,9 @@ experimentsRouter.post("/", async (c: Context) => {
     return c.json(experiment, 201);
   } catch (error) {
     console.error(error);
+    if (error instanceof InputValidationError) {
+      return c.json({ error: error.message }, 400);
+    }
     return c.json({ error: "Error creating experiment" }, 500);
   }
 });
@@ -70,6 +74,9 @@ experimentsRouter.put("/:id", async (c: Context) => {
     return c.json(experiment);
   } catch (error) {
     console.error(error);
+    if (error instanceof InputValidationError) {
+      return c.json({ error: error.message }, 400);
+    }
     return c.json({ error: "Error updating experiment" }, 500);
   }
 });

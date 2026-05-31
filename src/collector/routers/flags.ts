@@ -2,10 +2,12 @@ import { Hono, type Context } from "hono";
 
 import type { Env, FlagCreate, FlagUpdate, FlagEvaluationRequest, BulkFlagEvaluationRequest } from "../types";
 import { FeatureFlagService } from "../services/feature-flag";
+import { hasValidApiKey } from "../utils/auth";
+import { InputValidationError } from "../utils/errors";
 
 const flagsRouter = new Hono<{ Bindings: Env }>();
 
-flagsRouter.get("/", async (c: Context) => {
+flagsRouter.get("/", async (c: Context<{ Bindings: Env }>) => {
   try {
     const flagService = new FeatureFlagService(c.env.DB, c.env.CACHE_KV);
     const flags = await flagService.listFlags();
@@ -16,7 +18,7 @@ flagsRouter.get("/", async (c: Context) => {
   }
 });
 
-flagsRouter.post("/", async (c: Context) => {
+flagsRouter.post("/", async (c: Context<{ Bindings: Env }>) => {
   try {
     let flagData: FlagCreate;
     try {
@@ -35,11 +37,14 @@ flagsRouter.post("/", async (c: Context) => {
     return c.json(flag, 201);
   } catch (error) {
     console.error(error);
+    if (error instanceof InputValidationError) {
+      return c.json({ error: error.message }, 400);
+    }
     return c.json({ error: "Error creating feature flag" }, 500);
   }
 });
 
-flagsRouter.get("/:flagKey", async (c: Context) => {
+flagsRouter.get("/:flagKey", async (c: Context<{ Bindings: Env }>) => {
   try {
     const flagService = new FeatureFlagService(c.env.DB, c.env.CACHE_KV);
     const flag = await flagService.getFlag(c.req.param("flagKey"));
@@ -55,7 +60,7 @@ flagsRouter.get("/:flagKey", async (c: Context) => {
   }
 });
 
-flagsRouter.put("/:flagKey", async (c: Context) => {
+flagsRouter.put("/:flagKey", async (c: Context<{ Bindings: Env }>) => {
   try {
     let updateData: FlagUpdate;
     try {
@@ -74,11 +79,14 @@ flagsRouter.put("/:flagKey", async (c: Context) => {
     return c.json(flag);
   } catch (error) {
     console.error(error);
+    if (error instanceof InputValidationError) {
+      return c.json({ error: error.message }, 400);
+    }
     return c.json({ error: "Error updating feature flag" }, 500);
   }
 });
 
-flagsRouter.delete("/:flagKey", async (c: Context) => {
+flagsRouter.delete("/:flagKey", async (c: Context<{ Bindings: Env }>) => {
   try {
     const flagService = new FeatureFlagService(c.env.DB, c.env.CACHE_KV);
     const deleted = await flagService.deleteFlag(c.req.param("flagKey"));
@@ -94,7 +102,7 @@ flagsRouter.delete("/:flagKey", async (c: Context) => {
   }
 });
 
-flagsRouter.post("/:flagKey/resolve", async (c: Context) => {
+flagsRouter.post("/:flagKey/resolve", async (c: Context<{ Bindings: Env }>) => {
   try {
     let evaluationRequest: FlagEvaluationRequest;
     try {
@@ -125,7 +133,7 @@ flagsRouter.post("/:flagKey/resolve", async (c: Context) => {
   }
 });
 
-flagsRouter.post("/resolve", async (c: Context) => {
+flagsRouter.post("/resolve", async (c: Context<{ Bindings: Env }>) => {
   try {
     let bulkRequest: BulkFlagEvaluationRequest;
     try {
@@ -136,6 +144,10 @@ flagsRouter.post("/resolve", async (c: Context) => {
 
     if (!bulkRequest.user_id) {
       return c.json({ error: "user_id is required" }, 400);
+    }
+
+    if ((!bulkRequest.flag_keys || bulkRequest.flag_keys.length === 0) && !hasValidApiKey(c)) {
+      return c.json({ error: "flag_keys are required for public bulk flag resolution" }, 400);
     }
 
     const flagService = new FeatureFlagService(c.env.DB, c.env.CACHE_KV);

@@ -11,6 +11,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 WORKER_BASE_URL = os.getenv("WORKER_BASE_URL", "https://beacon.polychat.app")
+WORKER_API_KEY = os.getenv("WORKER_API_KEY")
+
+def worker_headers():
+    if not WORKER_API_KEY:
+        return {}
+
+    return {"X-API-Key": WORKER_API_KEY}
 
 app = FastAPI(title="Beacon Admin Dashboard")
 
@@ -29,9 +36,9 @@ async def dashboard(request: Request):
 async def sites_page(request: Request):
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.get(f"{WORKER_BASE_URL}/api/sites")
+            response = await client.get(f"{WORKER_BASE_URL}/api/sites", headers=worker_headers())
             sites = response.json() if response.status_code == 200 else []
-    except:
+    except httpx.HTTPError:
         sites = []
     
     return templates.TemplateResponse("sites.html", {
@@ -52,7 +59,7 @@ async def create_site(
             "site_id": site_id,
             "name": name,
             "domains": domains_list
-        })
+        }, headers=worker_headers())
     
     if response.status_code != 201:
         raise HTTPException(status_code=400, detail="Failed to create site")
@@ -73,7 +80,7 @@ async def edit_site(
             "name": name,
             "domains": domains_list,
             "status": status
-        })
+        }, headers=worker_headers())
     
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to update site")
@@ -83,7 +90,7 @@ async def edit_site(
 @app.post("/sites/{site_id}/delete")
 async def delete_site(site_id: str):
     async with httpx.AsyncClient() as client:
-        response = await client.delete(f"{WORKER_BASE_URL}/api/sites/{site_id}")
+        response = await client.delete(f"{WORKER_BASE_URL}/api/sites/{site_id}", headers=worker_headers())
     
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to delete site")
@@ -94,12 +101,12 @@ async def delete_site(site_id: str):
 async def experiments_page(request: Request):
     try:
         async with httpx.AsyncClient() as client:
-            exp_response = await client.get(f"{WORKER_BASE_URL}/api/experiments")
+            exp_response = await client.get(f"{WORKER_BASE_URL}/api/experiments", headers=worker_headers())
             experiments = exp_response.json() if exp_response.status_code == 200 else []
             
-            sites_response = await client.get(f"{WORKER_BASE_URL}/api/sites")
+            sites_response = await client.get(f"{WORKER_BASE_URL}/api/sites", headers=worker_headers())
             sites = sites_response.json() if sites_response.status_code == 200 else []
-    except:
+    except httpx.HTTPError:
         experiments = []
         sites = []
     
@@ -126,7 +133,7 @@ async def create_experiment(
                 {"name": "Control", "type": "control", "config": {}, "traffic_percentage": 50},
                 {"name": "Treatment", "type": "treatment", "config": {}, "traffic_percentage": 50}
             ]
-        })
+        }, headers=worker_headers())
     
     if response.status_code != 201:
         raise HTTPException(status_code=400, detail="Failed to create experiment")
@@ -137,12 +144,12 @@ async def create_experiment(
 async def flags_page(request: Request):
     try:
         async with httpx.AsyncClient() as client:
-            flags_response = await client.get(f"{WORKER_BASE_URL}/api/flags")
+            flags_response = await client.get(f"{WORKER_BASE_URL}/api/flags", headers=worker_headers())
             flags = flags_response.json() if flags_response.status_code == 200 else []
             
-            sites_response = await client.get(f"{WORKER_BASE_URL}/api/sites")
+            sites_response = await client.get(f"{WORKER_BASE_URL}/api/sites", headers=worker_headers())
             sites = sites_response.json() if sites_response.status_code == 200 else []
-    except:
+    except httpx.HTTPError:
         flags = []
         sites = []
     
@@ -178,7 +185,7 @@ async def create_flag(
         payload["site_id"] = site_id
     
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{WORKER_BASE_URL}/api/flags", json=payload)
+        response = await client.post(f"{WORKER_BASE_URL}/api/flags", json=payload, headers=worker_headers())
     
     if response.status_code != 201:
         raise HTTPException(status_code=400, detail="Failed to create flag")
@@ -188,7 +195,7 @@ async def create_flag(
 @app.post("/flags/{flag_key}/toggle")
 async def toggle_flag(flag_key: str):
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{WORKER_BASE_URL}/api/flags/{flag_key}")
+        response = await client.get(f"{WORKER_BASE_URL}/api/flags/{flag_key}", headers=worker_headers())
         if response.status_code != 200:
             raise HTTPException(status_code=404, detail="Flag not found")
         
@@ -197,7 +204,7 @@ async def toggle_flag(flag_key: str):
         
         response = await client.put(f"{WORKER_BASE_URL}/api/flags/{flag_key}", json={
             "enabled": new_enabled
-        })
+        }, headers=worker_headers())
     
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to toggle flag")
@@ -211,7 +218,7 @@ async def admin_page(request: Request):
 @app.post("/admin/publish/experiments")
 async def publish_experiments():
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/experiments")
+        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/experiments", headers=worker_headers())
     
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to publish experiments")
@@ -221,7 +228,7 @@ async def publish_experiments():
 @app.post("/admin/publish/sites")
 async def publish_sites():
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/sites")
+        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/sites", headers=worker_headers())
     
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to publish sites")
@@ -231,7 +238,7 @@ async def publish_sites():
 @app.post("/admin/publish/all")
 async def publish_all():
     async with httpx.AsyncClient() as client:
-        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/all")
+        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/all", headers=worker_headers())
     
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to publish all definitions")
@@ -242,12 +249,12 @@ async def publish_all():
 async def experiment_results(request: Request, experiment_id: str):
     try:
         async with httpx.AsyncClient() as client:
-            exp_response = await client.get(f"{WORKER_BASE_URL}/api/experiments/{experiment_id}")
+            exp_response = await client.get(f"{WORKER_BASE_URL}/api/experiments/{experiment_id}", headers=worker_headers())
             experiment = exp_response.json() if exp_response.status_code == 200 else None
             
-            results_response = await client.get(f"{WORKER_BASE_URL}/api/experiments/{experiment_id}/results")
+            results_response = await client.get(f"{WORKER_BASE_URL}/api/experiments/{experiment_id}/results", headers=worker_headers())
             results = results_response.json() if results_response.status_code == 200 else None
-    except:
+    except httpx.HTTPError:
         experiment = None
         results = None
     

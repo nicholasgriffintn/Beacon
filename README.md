@@ -46,8 +46,11 @@ pnpm install
 # - Update R2 bucket name
 # - Update D1 database ID
 
+# Configure the management API key as a Worker secret
+pnpm wrangler secret put ADMIN_API_KEY
+
 # Deploy database schema
-pnpm wrangler d1 execute analytics-database --file=src/database/schema.sql
+pnpm run db:apply
 
 # Deploy to Cloudflare Workers
 pnpm run deploy
@@ -75,6 +78,7 @@ cp .env.example .env
 
 # Edit .env with your values:
 # WORKER_BASE_URL=https://your-worker.your-subdomain.workers.dev
+# WORKER_API_KEY=the-same-value-as-ADMIN_API_KEY
 
 # Run the backend
 uvicorn main:app --reload --port 8000
@@ -90,33 +94,43 @@ uvicorn main:app --reload --port 8000
 - `POST /api/events/collect` - Single event collection
 - `POST /api/events/batch` - Batch event collection
 
-#### Site Management
+#### Site Management (`X-API-Key` required)
 - `GET /api/sites` - List all sites
 - `POST /api/sites` - Create new site
 - `GET /api/sites/:siteId` - Get site details
 - `PUT /api/sites/:siteId` - Update site
 - `DELETE /api/sites/:siteId` - Delete site
 
-#### Experiment Management
+#### CDN Configuration
+- `GET /api/cdn/experiments/latest?site_id=:siteId` - Get the published experiment config for a browser client
+- `GET /api/cdn/experiments/:version?site_id=:siteId` - Get a specific published experiment config version
+- `GET /api/cdn/experiments/info` - Get latest experiment publish metadata
+- `GET /api/cdn/experiments/versions` - List published experiment config versions
+- `GET /api/cdn/sites/latest` - Get the published site config
+- `GET /api/cdn/sites/:version` - Get a specific published site config version
+- `GET /api/cdn/sites/info` - Get latest site publish metadata
+- `GET /api/cdn/sites/versions` - List published site config versions
+
+#### Experiment Management (`X-API-Key` required except assignment)
 - `GET /api/experiments` - List experiments
 - `POST /api/experiments` - Create experiment
 - `GET /api/experiments/:id` - Get experiment
 - `PUT /api/experiments/:id` - Update experiment
 - `POST /api/experiments/:id/assign` - Assign variant to user
 
-#### Experiment Results
+#### Experiment Results (`X-API-Key` required)
 - `GET /api/experiments/:id/results` - Get latest results
 - `GET /api/experiments/:id/results/history` - Get results history
 - `GET /api/experiments/:id/results/:timestamp` - Get specific result
 
-#### Feature Flags
+#### Feature Flags (`X-API-Key` required except resolution)
 - `GET /api/flags` - List feature flags
 - `POST /api/flags` - Create feature flag
 - `GET /api/flags/:flagKey` - Get flag details
 - `PUT /api/flags/:flagKey` - Update flag
 - `DELETE /api/flags/:flagKey` - Delete flag
 - `POST /api/flags/:flagKey/resolve` - Resolve flag for user
-- `POST /api/flags/resolve` - Bulk flag resolution
+- `POST /api/flags/resolve` - Bulk flag resolution. Public calls must include `flag_keys`; resolving every enabled flag requires `X-API-Key`.
 
 #### CDN Publishing
 - `POST /api/admin/publish/experiments` - Publish experiments to CDN
@@ -125,9 +139,10 @@ uvicorn main:app --reload --port 8000
 
 ### Authentication
 
-Admin endpoints require an API key passed in the `X-API-Key` header:
+Management endpoints require an API key passed in the `X-API-Key` header. Configure the Worker secret with the same value:
 
 ```bash
+pnpm wrangler secret put ADMIN_API_KEY
 curl -H "X-API-Key: your-api-key" https://your-api.com/api/sites
 ```
 

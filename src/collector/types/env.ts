@@ -2,6 +2,7 @@ import type { D1Database, Fetcher, KVNamespace, R2Bucket } from "@cloudflare/wor
 
 export interface Env {
   ASSETS: Fetcher;
+  ADMIN_API_KEY?: string;
   ANALYTICS_PIPELINE: {
     send(records: Record<string, unknown>[]): Promise<void>;
   };

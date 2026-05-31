@@ -86,3 +86,42 @@ export function formatScreenDimensions(dimensions: ScreenDimensions | undefined)
 
   return `${dimensions.width}x${dimensions.height}x${dimensions.offset_x}x${dimensions.offset_y}`;
 }
+
+export function toEventNumber(value: unknown): number {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+}
+
+export function toBoolean(value: unknown): boolean {
+  return value === true || value === "true";
+}
+
+export function anonymizeIp(ip: string | null | undefined): string {
+  if (!ip || ip === "unknown") {
+    return "unknown";
+  }
+
+  const firstIp = ip.split(",")[0]?.trim();
+  if (!firstIp) {
+    return "unknown";
+  }
+
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(firstIp)) {
+    const parts = firstIp.split(".");
+    return `${parts[0]}.${parts[1]}.${parts[2]}.0`;
+  }
+
+  if (firstIp.includes(":")) {
+    return firstIp.split(":").slice(0, 4).join(":").padEnd(19, ":0");
+  }
+
+  return "unknown";
+}

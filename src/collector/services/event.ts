@@ -9,6 +9,8 @@ export async function handleEvent(c: Context, eventData: EventData) {
   if (!isValidEventData) {
     return {
       success: false,
+      error: "Event payload must include s and event_name",
+      status: 400,
       nextLastModifiedDate: null
     };
   }
@@ -31,6 +33,8 @@ export async function handleEvent(c: Context, eventData: EventData) {
     return {
       success: false,
       processed: 0,
+      error: "Failed to send event to analytics pipeline",
+      status: 502,
       nextLastModifiedDate
     };
   }

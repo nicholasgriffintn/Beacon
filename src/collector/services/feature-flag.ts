@@ -11,6 +11,8 @@ import type {
   TargetingRule,
   TargetingCondition,
 } from "../types";
+import { hashToUint32, isInPercentageBucket, stableStringify } from "../utils/bucketing";
+import { InputValidationError } from "../utils/errors";
 
 export class FeatureFlagService {
   private db: D1Database;
@@ -31,8 +33,9 @@ export class FeatureFlagService {
     return `flag:${flagKey}`;
   }
 
-  private getEvaluationCacheKey(flagKey: string, userId: string): string {
-    return `flag_eval:${flagKey}:${userId}`;
+  private getEvaluationCacheKey(flagKey: string, userId: string, attributes: Record<string, any>, defaultValue: any): string {
+    const contextHash = hashToUint32(stableStringify({ attributes, default_value: defaultValue })).toString(16);
+    return `flag_eval:${flagKey}:${userId}:${contextHash}`;
   }
 
   private async getFromCache(flagKey: string): Promise<FeatureFlag | null> {
@@ -60,16 +63,6 @@ export class FeatureFlagService {
     } catch {
       // Ignore cache failures
     }
-  }
-
-  private hash(str: string): number {
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
-    }
-    return Math.abs(hash);
   }
 
   private evaluateCondition(condition: TargetingCondition, attributes: Record<string, any>): boolean {
@@ -147,11 +140,7 @@ export class FeatureFlagService {
     if (percentage >= 100) return true;
     if (percentage <= 0) return false;
 
-    const hashInput = `${flagKey}:${userId}`;
-    const hashValue = this.hash(hashInput);
-    const bucket = hashValue % 100;
-    
-    return bucket < percentage;
+    return isInPercentageBucket(`${flagKey}:${userId}`, percentage);
   }
 
   async getFlag(flagKey: string): Promise<FeatureFlag | null> {
@@ -194,6 +183,10 @@ export class FeatureFlagService {
   }
 
   async createFlag(data: FlagCreate): Promise<FeatureFlag> {
+    if (data.rollout_percentage !== undefined && (data.rollout_percentage < 0 || data.rollout_percentage > 100)) {
+      throw new InputValidationError("rollout_percentage must be between 0 and 100");
+    }
+
     const id = this.generateId();
     const now = new Date().toISOString();
     
@@ -243,6 +236,10 @@ export class FeatureFlagService {
   async updateFlag(flagKey: string, data: FlagUpdate): Promise<FeatureFlag | null> {
     const existing = await this.getFlag(flagKey);
     if (!existing) return null;
+
+    if (data.rollout_percentage !== undefined && (data.rollout_percentage < 0 || data.rollout_percentage > 100)) {
+      throw new InputValidationError("rollout_percentage must be between 0 and 100");
+    }
 
     const updates: string[] = [];
     const values: unknown[] = [];
@@ -322,7 +319,7 @@ export class FeatureFlagService {
   async evaluateFlag(request: FlagEvaluationRequest): Promise<FlagEvaluationResponse> {
     const { flag_key, user_id, attributes = {}, default_value } = request;
 
-    const cacheKey = this.getEvaluationCacheKey(flag_key, user_id);
+    const cacheKey = this.getEvaluationCacheKey(flag_key, user_id, attributes, default_value);
     try {
       const cached = await this.kv.get(cacheKey, "json");
       if (cached) {

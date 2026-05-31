@@ -24,8 +24,8 @@ app.use(
     allowHeaders: [
       "Content-Type",
       "Authorization",
+      "X-API-Key",
     ],
-    credentials: true,
     maxAge: 86400,
   }),
 );

@@ -4,27 +4,32 @@ import type { BatchEventData } from "../types";
 import { collectCommonAnalyticsData } from "../lib";
 import { parseExperimentAssignments, returnCompactedAssignments } from "../utils";
 
-export async  function handleBatch(c: Context, batchData: BatchEventData) {
+const MAX_BATCH_EVENTS = 100;
+
+export async function handleBatch(c: Context, batchData: BatchEventData) {
   const isValidBatchData = batchData.s && Array.isArray(batchData.events) && batchData.events.length > 0;
   if (!isValidBatchData) {
     console.error("Invalid batch data", batchData);
     return {
       success: false,
       processed: 0,
+      error: "Batch payload must include s and a non-empty events array",
+      status: 400,
+      nextLastModifiedDate: null
+    };
+  }
+
+  if (batchData.events.length > MAX_BATCH_EVENTS) {
+    return {
+      success: false,
+      processed: 0,
+      error: `Batch size cannot exceed ${MAX_BATCH_EVENTS} events`,
+      status: 413,
       nextLastModifiedDate: null
     };
   }
 
   const { analyticsData, nextLastModifiedDate } = collectCommonAnalyticsData(c, batchData, false);
-
-  if (!batchData.events) {
-    console.error("Invalid batch data", batchData);
-    return {
-      success: false,
-      processed: 0,
-      nextLastModifiedDate
-    };
-  }
 
   const experimentAssignments = parseExperimentAssignments([], batchData.exp);
   const compactedAssignments = returnCompactedAssignments(experimentAssignments);
@@ -40,7 +45,7 @@ export async  function handleBatch(c: Context, batchData: BatchEventData) {
           event_category: event.event_category || 'general',
           event_label: event.event_label || event.event_name || 'page_view',
           content_type: event.content_type || 'page',
-          virtual_pageview: event.virtual_pageview || false,
+          virtual_pageview: event.virtual_pageview ?? event.virtual_page_view ?? false,
         },
         page: {
           ...analyticsData.page,
@@ -95,6 +100,8 @@ export async  function handleBatch(c: Context, batchData: BatchEventData) {
     return {
       success: false,
       processed: 0,
+      error: "Failed to send events to analytics pipeline",
+      status: 502,
       nextLastModifiedDate
     };
   }

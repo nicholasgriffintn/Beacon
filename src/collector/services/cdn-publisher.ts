@@ -10,6 +10,42 @@ interface PublishedDefinition {
   url: string;
 }
 
+interface PublishedExperiment {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  site_id?: string;
+  targeting_rules: Record<string, unknown>;
+  traffic_allocation: number;
+  variants: Array<{
+    id: string;
+    name: string;
+    type: string;
+    config: Record<string, unknown>;
+    traffic_percentage: number;
+  }>;
+}
+
+interface PublishedExperimentsConfig {
+  version: string;
+  updated_at: string;
+  experiments: PublishedExperiment[];
+}
+
+interface PublishedSitesConfig {
+  version: string;
+  updated_at: string;
+  sites: Array<{
+    site_id: string;
+    name: string;
+    domains: string[];
+    status: string;
+  }>;
+}
+
+export type PublishedConfig = PublishedExperimentsConfig | PublishedSitesConfig;
+
 export class CDNPublisher {
   private db: D1Database;
   private r2: R2Bucket;
@@ -91,6 +127,7 @@ export class CDNPublisher {
         name: exp.name,
         type: exp.type,
         status: exp.status,
+        site_id: exp.site_id,
         targeting_rules: exp.targeting_rules,
         traffic_allocation: exp.traffic_allocation,
         variants: exp.variants.map(variant => ({
@@ -115,7 +152,7 @@ export class CDNPublisher {
   }
 
   async publishSites(): Promise<PublishedDefinition> {
-    const siteService = new SiteService(this.db, {} as any); // We don't need KV for this operation
+    const siteService = new SiteService(this.db);
     const sites = await siteService.listSites();
     
     const activeSites = sites.filter(site => site.status === 'active');
@@ -184,6 +221,30 @@ export class CDNPublisher {
         .reverse();
     } catch {
       return [];
+    }
+  }
+
+  async getPublishedConfig(type: 'experiments' | 'sites', version = 'latest'): Promise<{
+    content: PublishedConfig;
+    etag?: string;
+    version?: string;
+    uploaded?: Date;
+  } | null> {
+    try {
+      const key = version === 'latest'
+        ? `config/v1/${type}/latest.json`
+        : `config/v1/${type}/${version}.json`;
+      const object = await this.r2.get(key);
+      if (!object) return null;
+
+      return {
+        content: await object.json<PublishedConfig>(),
+        etag: object.customMetadata?.etag,
+        version: object.customMetadata?.version,
+        uploaded: object.uploaded,
+      };
+    } catch {
+      return null;
     }
   }
 }

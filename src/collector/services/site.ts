@@ -1,13 +1,15 @@
 import type { D1Database, KVNamespace } from "@cloudflare/workers-types";
 
 import type { Site, SiteCreate, SiteUpdate, SiteValidationResult } from "../types";
+import { getHostnameFromUrl, isHostnameAllowed, isValidSiteDomain } from "../utils/domains";
+import { InputValidationError } from "../utils/errors";
 
 export class SiteService {
   private db: D1Database;
-  private kv: KVNamespace;
+  private kv?: KVNamespace;
   private readonly CACHE_TTL = 5 * 60; // 5 minutes
 
-  constructor(db: D1Database, kv: KVNamespace) {
+  constructor(db: D1Database, kv?: KVNamespace) {
     this.db = db;
     this.kv = kv;
   }
@@ -16,25 +18,15 @@ export class SiteService {
     return `site_${Date.now()}_${Math.random().toString(36).slice(2)}`;
   }
 
-  private isValidDomain(domain: string): boolean {
-    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]*\.([a-zA-Z]{2,}|localhost)$/;
-    return domainRegex.test(domain) || domain === 'localhost' || domain.startsWith('localhost:');
-  }
-
-  private getDomainFromUrl(url: string): string | null {
-    try {
-      const parsedUrl = new URL(url);
-      return parsedUrl.hostname;
-    } catch {
-      return null;
-    }
-  }
-
   private getCacheKey(siteId: string): string {
     return `site:${siteId}`;
   }
 
   private async getFromCache(siteId: string): Promise<Site | null> {
+    if (!this.kv) {
+      return null;
+    }
+
     try {
       const key = this.getCacheKey(siteId);
       const cached = await this.kv.get(key, "json");
@@ -45,6 +37,10 @@ export class SiteService {
   }
 
   private async setCache(siteId: string, site: Site): Promise<void> {
+    if (!this.kv) {
+      return;
+    }
+
     try {
       const key = this.getCacheKey(siteId);
       await this.kv.put(key, JSON.stringify(site), { expirationTtl: this.CACHE_TTL });
@@ -54,6 +50,10 @@ export class SiteService {
   }
 
   private async invalidateCache(siteId: string): Promise<void> {
+    if (!this.kv) {
+      return;
+    }
+
     try {
       const key = this.getCacheKey(siteId);
       await this.kv.delete(key);
@@ -68,8 +68,20 @@ export class SiteService {
       return cached;
     }
 
+    const site = await this.getSiteRecord(siteId, true);
+    if (!site) return null;
+
+    await this.setCache(siteId, site);
+    return site;
+  }
+
+  private async getSiteRecord(siteId: string, activeOnly: boolean): Promise<Site | null> {
+    const query = activeOnly
+      ? "SELECT * FROM sites WHERE site_id = ? AND status = 'active'"
+      : "SELECT * FROM sites WHERE site_id = ?";
+
     const result = await this.db
-      .prepare("SELECT * FROM sites WHERE site_id = ? AND status = 'active'")
+      .prepare(query)
       .bind(siteId)
       .first();
 
@@ -77,13 +89,10 @@ export class SiteService {
       return null;
     }
 
-    const site: Site = {
+    return {
       ...result,
       domains: JSON.parse(result.domains as string)
     } as Site;
-
-    await this.setCache(siteId, site);
-    return site;
   }
 
   async validateSiteAndDomain(siteId: string, refererUrl?: string): Promise<SiteValidationResult> {
@@ -96,31 +105,15 @@ export class SiteService {
       };
     }
 
-    if (!refererUrl) {
-      return {
-        valid: true,
-        site
-      };
-    }
-
-    const refererDomain = this.getDomainFromUrl(refererUrl);
+    const refererDomain = getHostnameFromUrl(refererUrl);
     if (!refererDomain) {
       return {
         valid: false,
-        error: 'Invalid referer URL'
+        error: 'Missing or invalid request origin'
       };
     }
 
-    const isValidDomain = site.domains.some(domain => {
-      if (domain === refererDomain) return true;
-      
-      if (domain.startsWith('*.')) {
-        const baseDomain = domain.slice(2);
-        return refererDomain === baseDomain || refererDomain.endsWith('.' + baseDomain);
-      }
-      
-      return false;
-    });
+    const isValidDomain = site.domains.some(domain => isHostnameAllowed(domain, refererDomain));
 
     if (!isValidDomain) {
       return {
@@ -148,8 +141,8 @@ export class SiteService {
 
   async createSite(data: SiteCreate): Promise<Site> {
     for (const domain of data.domains) {
-      if (!this.isValidDomain(domain) && !domain.startsWith('*.')) {
-        throw new Error(`Invalid domain: ${domain}`);
+      if (!isValidSiteDomain(domain)) {
+        throw new InputValidationError(`Invalid domain: ${domain}`);
       }
     }
 
@@ -186,13 +179,13 @@ export class SiteService {
   }
 
   async updateSite(siteId: string, data: SiteUpdate): Promise<Site | null> {
-    const existing = await this.getSite(siteId);
+    const existing = await this.getSiteRecord(siteId, false);
     if (!existing) return null;
 
     if (data.domains) {
       for (const domain of data.domains) {
-        if (!this.isValidDomain(domain) && !domain.startsWith('*.')) {
-          throw new Error(`Invalid domain: ${domain}`);
+        if (!isValidSiteDomain(domain)) {
+          throw new InputValidationError(`Invalid domain: ${domain}`);
         }
       }
     }
@@ -230,7 +223,7 @@ export class SiteService {
 
     await this.invalidateCache(siteId);
 
-    return await this.getSite(siteId);
+    return await this.getSiteRecord(siteId, false);
   }
 
   async deleteSite(siteId: string): Promise<boolean> {

@@ -51,12 +51,14 @@ declare global {
       }) => void;
       setConsent: (consent: boolean) => void;
       hasConsent: () => boolean;
+      getUserId: () => string;
     };
     _beaconInitialized?: boolean;
     _expBeaconInitialized?: boolean;
     BeaconExperiments?: {
       init: (config: {
         endpoint: string;
+        siteId?: string;
         debug: boolean;
       }) => void;
       defineExperimentBehaviors: (experiments: Experiment[]) => void;
@@ -158,6 +160,7 @@ export function Analytics({
         window.BeaconExperiments.init({
           debug: beaconDebug,
           endpoint: beaconEndpoint,
+          siteId: beaconSiteId,
         });
       }
     };
