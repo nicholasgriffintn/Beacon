@@ -1,6 +1,6 @@
 import { Hono, type Context } from "hono";
 
-import type { Env, ExperimentCreate, ExperimentUpdate, UserContext } from "../types";
+import type { Env, ExperimentCreate, ExperimentUpdate } from "../types";
 import { ExperimentService } from "../services/experiment";
 import { ExperimentResultsService } from "../services/experiment-results";
 import { publishCdnForMutation } from "../services/cdn-sync";
@@ -96,33 +96,6 @@ experimentsRouter.put("/:id", async (c: Context) => {
       return c.json({ error: error.message }, 400);
     }
     return c.json({ error: "Error updating experiment" }, 500);
-  }
-});
-
-experimentsRouter.post("/:id/assign", async (c: Context) => {
-  try {
-    let userContext: UserContext;
-    try {
-      userContext = await c.req.json();
-    } catch {
-      return c.json({ error: "Invalid JSON payload" }, 400);
-    }
-
-    if (!userContext.user_id) {
-      return c.json({ error: "user_id is required" }, 400);
-    }
-
-    const experimentService = new ExperimentService(c.env.DB);
-    const assignment = await experimentService.assignVariant(c.req.param("id"), userContext);
-    
-    if (!assignment) {
-      return c.json({ error: "No assignment made" }, 500);
-    }
-    
-    return c.json(assignment);
-  } catch (error) {
-    console.error(error);
-    return c.json({ error: "Error assigning variant" }, 500);
   }
 });
 

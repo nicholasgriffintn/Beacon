@@ -6,14 +6,14 @@ export type CdnPublishResult = Partial<Record<CdnConfigType, PublishedDefinition
 
 export function getCdnPublishScopesForMutation(resource: CdnMutationResource): CdnConfigType[] {
   if (resource === "site") {
-    return ["sites", "experiments", "flags"];
+    return ["sites", "flags", "openfeature"];
   }
 
   if (resource === "experiment") {
-    return ["experiments"];
+    return ["openfeature"];
   }
 
-  return ["flags"];
+  return ["flags", "openfeature"];
 }
 
 export function getCdnPublishHeaders(result: CdnPublishResult): Record<string, string> {

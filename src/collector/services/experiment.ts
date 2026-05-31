@@ -4,17 +4,14 @@ import type {
   Experiment,
   ExperimentCreate,
   ExperimentUpdate,
-  UserContext,
   Variant,
-  VariantAssignment
 } from '../types';
-import { getDeterministicBucket } from '../utils/bucketing.ts';
 import { InputValidationError } from '../utils/errors.ts';
 import { parseJsonRecord } from '../utils/json.ts';
-import { selectVariantForUser } from '../utils/variant-allocation.ts';
 
 interface ExperimentRow {
   id: string;
+  flag_key?: string | null;
   name: string;
   description?: string | null;
   type: Experiment["type"];
@@ -85,6 +82,7 @@ export class ExperimentService {
   private normaliseExperiment(row: ExperimentRow, variants: Variant[]): Experiment {
     return {
       id: row.id,
+      flag_key: row.flag_key || row.id,
       name: row.name,
       description: row.description || undefined,
       type: row.type,
@@ -105,18 +103,20 @@ export class ExperimentService {
 
   async createExperiment(experimentData: ExperimentCreate): Promise<Experiment> {
     this.validateExperimentCreate(experimentData);
+    await this.validateExperimentFlag(experimentData.flag_key);
 
-    const id = crypto.randomUUID();
+    const id = experimentData.id?.trim() || crypto.randomUUID();
 
     const statements = [
       this.db.prepare(
         `INSERT INTO experiments (
-          id, name, description, type, status, site_id,
+          id, flag_key, name, description, type, status, site_id,
           targeting_rules, traffic_allocation,
           start_time, end_time
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).bind(
         id,
+        experimentData.flag_key,
         experimentData.name,
         experimentData.description || null,
         experimentData.type,
@@ -214,73 +214,6 @@ export class ExperimentService {
     return await this.getExperiment(id);
   }
 
-  async assignVariant(experimentId: string, userContext: UserContext): Promise<VariantAssignment | { message: string }> {
-    const experiment = await this.getExperiment(experimentId);
-    if (!experiment || !this.isAssignable(experiment)) {
-      return {
-        message: 'Experiment not found or not running'
-      };
-    }
-
-    const existingAssignment = await this.db
-      .prepare('SELECT * FROM assignments WHERE experiment_id = ? AND user_id = ?')
-      .bind(experimentId, userContext.user_id)
-      .first();
-
-    if (existingAssignment) {
-      const variant = experiment.variants.find(v => v.id === existingAssignment.variant_id);
-
-      if (!variant) {
-        return {
-          message: "No existing variant found",
-        };
-      }
-
-      return {
-        experiment_id: experimentId,
-        variant_id: variant.id,
-        variant_name: variant.name,
-        config: variant.config
-      };
-    }
-
-    const variant = this.determineVariant(experiment, userContext);
-    if (!variant) {
-      return {
-        message: "No variant found",
-      };
-    }
-
-    await this.db
-      .prepare(
-        'INSERT INTO assignments (id, experiment_id, variant_id, user_id, context) VALUES (?, ?, ?, ?, ?)'
-      )
-      .bind(
-        crypto.randomUUID(),
-        experimentId,
-        variant.id,
-        userContext.user_id,
-        JSON.stringify(userContext.attributes || {})
-      )
-      .run();
-
-    return {
-      experiment_id: experimentId,
-      variant_id: variant.id,
-      variant_name: variant.name,
-      config: variant.config
-    };
-  }
-
-  private determineVariant(experiment: Experiment, userContext: UserContext): Variant | null {
-    const experimentBucket = getDeterministicBucket(`${experiment.id}:${userContext.user_id}:allocation`);
-    if (experimentBucket >= experiment.traffic_allocation) {
-      return null;
-    }
-
-    return selectVariantForUser(experiment.id, experiment.variants, userContext);
-  }
-
   private normalizeVariant(variant: VariantRow): Variant {
     return {
       id: variant.id,
@@ -292,25 +225,19 @@ export class ExperimentService {
     };
   }
 
-  private isAssignable(experiment: Experiment): boolean {
-    if (experiment.status !== 'running') {
-      return false;
-    }
-
-    const now = Date.now();
-
-    if (experiment.start_time && Date.parse(experiment.start_time) > now) {
-      return false;
-    }
-
-    if (experiment.end_time && Date.parse(experiment.end_time) <= now) {
-      return false;
-    }
-
-    return true;
-  }
-
   private validateExperimentCreate(experimentData: ExperimentCreate): void {
+    if (experimentData.id !== undefined && !/^[A-Za-z0-9_.:-]+$/.test(experimentData.id)) {
+      throw new InputValidationError("id must be URL-safe");
+    }
+
+    if (!experimentData.flag_key) {
+      throw new InputValidationError("flag_key is required");
+    }
+
+    if (!/^[A-Za-z0-9_.:-]+$/.test(experimentData.flag_key)) {
+      throw new InputValidationError("flag_key must be a URL-safe OpenFeature flag key");
+    }
+
     if (!experimentData.name) {
       throw new InputValidationError("name is required");
     }
@@ -333,6 +260,17 @@ export class ExperimentService {
 
     if (Math.round(totalTraffic * 100) / 100 !== 100) {
       throw new InputValidationError("variant traffic_percentage values must sum to 100");
+    }
+  }
+
+  private async validateExperimentFlag(flagKey: string): Promise<void> {
+    const flag = await this.db
+      .prepare("SELECT flag_key FROM feature_flags WHERE flag_key = ?")
+      .bind(flagKey)
+      .first<{ flag_key: string }>();
+
+    if (!flag) {
+      throw new InputValidationError("experiments must be attached to an existing feature flag");
     }
   }
 

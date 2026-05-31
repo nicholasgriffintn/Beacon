@@ -6,13 +6,43 @@ import type {
   FlagUpdate, 
   FlagEvaluationRequest,
   FlagEvaluationResponse,
-  BulkFlagEvaluationRequest,
-  BulkFlagEvaluationResponse,
+  Experiment,
   TargetingRule,
   TargetingCondition,
+  Variant,
 } from "../types";
-import { hashToUint32, isInPercentageBucket, stableStringify } from "../utils/bucketing";
-import { InputValidationError } from "../utils/errors";
+import { getDeterministicBucket, hashToUint32, isInPercentageBucket, stableStringify } from "../utils/bucketing.ts";
+import { InputValidationError } from "../utils/errors.ts";
+import { parseJsonRecord } from "../utils/json.ts";
+import { selectVariantForTargetingKey } from "../utils/variant-allocation.ts";
+
+interface ExperimentRow {
+  id: string;
+  flag_key?: string | null;
+  name: string;
+  description?: string | null;
+  type: Experiment["type"];
+  status: Experiment["status"];
+  site_id?: string | null;
+  targeting_rules: unknown;
+  traffic_allocation: number;
+  start_time?: string | null;
+  end_time?: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  stopped_reason?: string | null;
+}
+
+interface VariantRow {
+  id: string;
+  experiment_id: string;
+  name: string;
+  type: Variant["type"];
+  config: unknown;
+  traffic_percentage: number;
+}
 
 export class FeatureFlagService {
   private db: D1Database;
@@ -153,6 +183,197 @@ export class FeatureFlagService {
     if (percentage <= 0) return false;
 
     return isInPercentageBucket(`${flagKey}:${userId}`, percentage);
+  }
+
+  private getContextSiteId(attributes: Record<string, any>): string | null {
+    const siteId = attributes.siteId || attributes.site_id;
+    return typeof siteId === "string" && siteId ? siteId : null;
+  }
+
+  private async getActiveExperimentForFlag(flagKey: string, siteId: string | null): Promise<Experiment | null> {
+    const experiments = await this.db
+      .prepare(`
+        SELECT *
+        FROM experiments
+        WHERE flag_key = ? AND status = 'running'
+        ORDER BY updated_at DESC, created_at DESC
+      `)
+      .bind(flagKey)
+      .all<ExperimentRow>();
+
+    const row = experiments.results.find(experiment => {
+      return (!experiment.site_id || experiment.site_id === siteId) && this.isExperimentAssignable(experiment);
+    });
+
+    if (!row) {
+      return null;
+    }
+
+    const variants = await this.db
+      .prepare(`
+        SELECT id, experiment_id, name, type, config, traffic_percentage
+        FROM variants
+        WHERE experiment_id = ?
+        ORDER BY type, name, id
+      `)
+      .bind(row.id)
+      .all<VariantRow>();
+
+    return {
+      id: row.id,
+      flag_key: row.flag_key || flagKey,
+      name: row.name,
+      description: row.description || undefined,
+      type: row.type,
+      status: row.status,
+      site_id: row.site_id || undefined,
+      targeting_rules: parseJsonRecord(row.targeting_rules),
+      traffic_allocation: Number(row.traffic_allocation),
+      start_time: row.start_time || undefined,
+      end_time: row.end_time || undefined,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      started_at: row.started_at || undefined,
+      ended_at: row.ended_at || undefined,
+      stopped_reason: row.stopped_reason || undefined,
+      variants: variants.results.map(variant => ({
+        id: variant.id,
+        experiment_id: variant.experiment_id,
+        name: variant.name,
+        type: variant.type,
+        config: parseJsonRecord(variant.config),
+        traffic_percentage: Number(variant.traffic_percentage),
+      })),
+    };
+  }
+
+  private isExperimentAssignable(experiment: ExperimentRow): boolean {
+    const now = Date.now();
+
+    if (experiment.start_time && Date.parse(experiment.start_time) > now) {
+      return false;
+    }
+
+    if (experiment.end_time && Date.parse(experiment.end_time) <= now) {
+      return false;
+    }
+
+    return true;
+  }
+
+  private getExperimentVariantValue(variant: Variant): unknown {
+    if (Object.prototype.hasOwnProperty.call(variant.config, "value")) {
+      return variant.config.value;
+    }
+
+    return variant.config;
+  }
+
+  private async evaluateExperimentAllocation(
+    flag: FeatureFlag,
+    userId: string,
+    attributes: Record<string, any>,
+  ): Promise<FlagEvaluationResponse | null> {
+    const experiment = await this.getActiveExperimentForFlag(flag.flag_key, this.getContextSiteId(attributes));
+    if (!experiment) {
+      return null;
+    }
+
+    const allocationBucket = getDeterministicBucket(`${experiment.id}:${userId}:allocation`);
+    if (allocationBucket >= experiment.traffic_allocation) {
+      return null;
+    }
+
+    const existingAssignment = await this.db
+      .prepare("SELECT * FROM assignments WHERE experiment_id = ? AND user_id = ?")
+      .bind(experiment.id, userId)
+      .first<{ variant_id: string }>();
+    const assignedVariant = existingAssignment
+      ? experiment.variants.find(variant => variant.id === existingAssignment.variant_id)
+      : null;
+    const variant = assignedVariant || selectVariantForTargetingKey(experiment.id, experiment.variants, userId);
+
+    if (!variant) {
+      return null;
+    }
+
+    if (!existingAssignment) {
+      await this.db
+        .prepare("INSERT OR IGNORE INTO assignments (id, experiment_id, variant_id, user_id, context) VALUES (?, ?, ?, ?, ?)")
+        .bind(
+          crypto.randomUUID(),
+          experiment.id,
+          variant.id,
+          userId,
+          JSON.stringify(attributes),
+        )
+        .run();
+    }
+
+    return {
+      flag_key: flag.flag_key,
+      user_id: userId,
+      variation_key: variant.id,
+      variant_name: variant.name,
+      value: this.getExperimentVariantValue(variant),
+      reason: "rollout",
+      enabled: true,
+      experiment_id: experiment.id,
+      experiment_name: experiment.name,
+    };
+  }
+
+  private evaluateFlagRules(
+    flag: FeatureFlag,
+    userId: string,
+    attributes: Record<string, any>,
+  ): FlagEvaluationResponse {
+    let matchedRule: TargetingRule | null = null;
+
+    for (const rule of flag.targeting_rules) {
+      if (!this.evaluateTargetingRule(rule, attributes)) {
+        continue;
+      }
+
+      if (rule.rollout_percentage !== undefined && !this.isInRollout(userId, `${flag.flag_key}${rule.id}`, rule.rollout_percentage)) {
+        continue;
+      }
+
+      matchedRule = rule;
+      break;
+    }
+
+    if (matchedRule) {
+      const variation = flag.variations.find(v => v.key === matchedRule.variation_key);
+      return {
+        flag_key: flag.flag_key,
+        user_id: userId,
+        variation_key: matchedRule.variation_key,
+        value: variation?.value ?? flag.default_value,
+        reason: 'targeting',
+        enabled: true,
+      };
+    }
+
+    if (this.isInRollout(userId, flag.flag_key, flag.rollout_percentage)) {
+      const variation = flag.variations[0];
+      return {
+        flag_key: flag.flag_key,
+        user_id: userId,
+        variation_key: variation?.key,
+        value: variation?.value ?? flag.default_value,
+        reason: 'rollout',
+        enabled: true,
+      };
+    }
+
+    return {
+      flag_key: flag.flag_key,
+      user_id: userId,
+      value: flag.default_value,
+      reason: 'default',
+      enabled: true,
+    };
   }
 
   async getFlag(flagKey: string): Promise<FeatureFlag | null> {
@@ -357,7 +578,7 @@ export class FeatureFlagService {
       return response;
     }
 
-    let response: FlagEvaluationResponse;
+    let response: FlagEvaluationResponse | null = null;
 
     if (flag.kill_switch) {
       response = {
@@ -376,50 +597,8 @@ export class FeatureFlagService {
         enabled: false
       };
     } else {
-      let matchedRule: TargetingRule | null = null;
-      
-      for (const rule of flag.targeting_rules) {
-        if (this.evaluateTargetingRule(rule, attributes)) {
-          if (rule.rollout_percentage !== undefined && rule.rollout_percentage < 100) {
-            if (!this.isInRollout(user_id, flag_key + rule.id, rule.rollout_percentage)) {
-              continue; // Skip this rule due to rollout
-            }
-          }
-          matchedRule = rule;
-          break;
-        }
-      }
-
-      if (matchedRule) {
-        const variation = flag.variations.find(v => v.key === matchedRule!.variation_key);
-        response = {
-          flag_key,
-          user_id,
-          variation_key: matchedRule.variation_key,
-          value: variation?.value ?? flag.default_value,
-          reason: 'targeting',
-          enabled: true
-        };
-      } else if (this.isInRollout(user_id, flag_key, flag.rollout_percentage)) {
-        // Use first variation or default
-        const variation = flag.variations[0];
-        response = {
-          flag_key,
-          user_id,
-          variation_key: variation?.key,
-          value: variation?.value ?? flag.default_value,
-          reason: 'rollout',
-          enabled: true
-        };
-      } else {
-        response = {
-          flag_key,
-          user_id,
-          value: flag.default_value,
-          reason: 'default',
-          enabled: true
-        };
-      }
+      response = await this.evaluateExperimentAllocation(flag, user_id, attributes);
+      response ??= this.evaluateFlagRules(flag, user_id, attributes);
     }
 
     if (this.kv) {
@@ -435,42 +614,6 @@ export class FeatureFlagService {
     await this.logEvaluation(flag, response, attributes);
 
     return response;
-  }
-
-  async evaluateFlags(request: BulkFlagEvaluationRequest): Promise<BulkFlagEvaluationResponse> {
-    const { user_id, attributes = {}, flag_keys } = request;
-    
-    let flagsToEvaluate: FeatureFlag[];
-    
-    if (flag_keys && flag_keys.length > 0) {
-      const flagPromises = flag_keys.map(key => this.getFlag(key));
-      const flags = await Promise.all(flagPromises);
-      flagsToEvaluate = flags.filter(Boolean) as FeatureFlag[];
-    } else {
-      flagsToEvaluate = (await this.listFlags()).filter(flag => flag.enabled && !flag.kill_switch);
-    }
-
-    const evaluationPromises = flagsToEvaluate.map(flag => 
-      this.evaluateFlag({
-        flag_key: flag.flag_key,
-        user_id,
-        attributes,
-        default_value: flag.default_value
-      })
-    );
-
-    const evaluations = await Promise.all(evaluationPromises);
-    
-    const flags: Record<string, FlagEvaluationResponse> = {};
-    evaluations.forEach(evaluation => {
-      flags[evaluation.flag_key] = evaluation;
-    });
-
-    return {
-      user_id,
-      flags,
-      evaluated_at: new Date().toISOString()
-    };
   }
 
   private async logEvaluation(

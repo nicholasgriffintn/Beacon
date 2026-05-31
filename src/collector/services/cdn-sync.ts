@@ -16,11 +16,12 @@ export async function publishCdnForMutation(
 
   if (resource === "experiment") {
     return {
-      experiments: await publisher.publishExperiments(),
+      openfeature: await publisher.publishOpenFeature(),
     };
   }
 
   return {
     flags: await publisher.publishFlags(),
+    openfeature: await publisher.publishOpenFeature(),
   };
 }

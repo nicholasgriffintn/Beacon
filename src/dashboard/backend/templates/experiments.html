@@ -10,6 +10,14 @@
             <summary style="cursor: pointer; font-weight: 600; margin-bottom: 1rem;">➕ Create New Experiment</summary>
             
             <form method="post" action="/experiments/create">
+                <label for="flag_key">Feature Flag:</label>
+                <select name="flag_key" id="flag_key" required>
+                    <option value="">Select a flag</option>
+                    {% for flag in flags %}
+                    <option value="{{ flag.flag_key }}">{{ flag.name }} ({{ flag.flag_key }})</option>
+                    {% endfor %}
+                </select>
+
                 <label for="name">Experiment Name:</label>
                 <input type="text" name="name" id="name" required placeholder="Homepage Button Test">
                 
@@ -42,6 +50,7 @@
         <table>
             <thead>
                 <tr>
+                    <th>Flag Key</th>
                     <th>Name</th>
                     <th>Type</th>
                     <th>Site</th>
@@ -55,6 +64,7 @@
             <tbody>
                 {% for exp in experiments %}
                 <tr>
+                    <td><code>{{ exp.flag_key }}</code></td>
                     <td>
                         <strong>{{ exp.name }}</strong>
                         {% if exp.description %}<br><small style="color: #666;">{{ exp.description }}</small>{% endif %}

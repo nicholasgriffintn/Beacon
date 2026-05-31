@@ -15,7 +15,9 @@
   },
   "vars": {
     "RATE_LIMIT_EVENTS_PER_MINUTE": "600",
-    "RATE_LIMIT_EVALUATIONS_PER_MINUTE": "300"
+    "RATE_LIMIT_EVALUATIONS_PER_MINUTE": "300",
+    "SENTRY_DSN": "https://de937738e9a841c5bbe6d17578786c82@ingest.bitwobbly.com/28",
+    "SENTRY_TRACES_SAMPLE_RATE": "0"
   },
   "upload_source_maps": true,
 	"assets": {

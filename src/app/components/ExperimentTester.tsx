@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useExperiments } from '../hooks/use-experiments';
+import { useOpenFeature } from '../hooks/use-openfeature';
 import { useTrackEvent } from '../hooks/use-track-event';
 
 const setLightTheme = (config: Record<string, string> = {}) => {
@@ -19,7 +19,7 @@ const setDarkTheme = (config: Record<string, string> = {}) => {
 };
 
 export function ExperimentTester() {
-  const { defineExperimentBehaviors, activate, getVariant, forceVariant, isReady } = useExperiments();
+  const { getObjectDetails, track, isReady } = useOpenFeature();
   const trackEvent = useTrackEvent();
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: Only run once ready
@@ -27,34 +27,12 @@ export function ExperimentTester() {
     if (!isReady) return;
 
     const setupExperiment = async () => {
-      await defineExperimentBehaviors([
-        {
-          id: 'color_scheme',
-          autoActivate: true,
-          variants: [
-            {
-              id: 'control',
-              activate: (config) => {
-                setLightTheme(config);
-              }
-            },
-            {
-              id: 'dark',
-              activate: (config) => {
-                setDarkTheme(config);
-              }
-            }
-          ]
-        }
-      ]);
+      const details = await getObjectDetails('color_scheme', {});
 
-      await activate('color_scheme');
-      const variant = await getVariant('color_scheme');
-
-      if (variant?.variant_id === 'dark') {
-        setDarkTheme(variant.config);
+      if (details?.variant === 'color_scheme_dark' || details?.flagMetadata.variant_name === 'dark') {
+        setDarkTheme(details.value);
       } else {
-        setLightTheme(variant?.config || {});
+        setLightTheme(details?.value || {});
       }
     };
 
@@ -64,13 +42,22 @@ export function ExperimentTester() {
   const handleThemeChange = async (variant: 'control' | 'dark') => {
     if (!isReady) return;
 
-    await forceVariant('color_scheme', variant);
+    if (variant === 'dark') {
+      setDarkTheme();
+    } else {
+      setLightTheme();
+    }
 
-    await activate('color_scheme');
-
+    track('theme_preview', {}, {
+      flagKey: 'color_scheme',
+      flagSource: 'feature_flag',
+      conversionId: 'theme_preview',
+      value: 1,
+      previewVariant: variant,
+    });
     trackEvent({
-      name: 'experiment_force',
-      category: 'experiments',
+      name: 'openfeature_theme_preview',
+      category: 'openfeature',
       label: 'color_scheme',
       value: variant
     });

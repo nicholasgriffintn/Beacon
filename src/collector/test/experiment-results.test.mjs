@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createRecommendedAction, getWilsonInterval } from "../services/experiment-results.ts";
+import { createRecommendedAction, getExperimentResultUserTotal, getWilsonInterval } from "../services/experiment-results.ts";
 
 function result(name, totalUsers, convertedUsers, conversionCount = convertedUsers) {
   return {
@@ -35,7 +35,7 @@ test("calculates bounded Wilson confidence intervals", () => {
 });
 
 test("summarises experiment result readiness and observed winner", () => {
-  assert.equal(createRecommendedAction([]), "No assignment data is available yet.");
+  assert.equal(createRecommendedAction([]), "No exposure data is available yet.");
   assert.equal(
     createRecommendedAction([result("Control", 40, 5), result("Treatment", 40, 10)]),
     "Keep collecting data before making a decision.",
@@ -48,4 +48,9 @@ test("summarises experiment result readiness and observed winner", () => {
     createRecommendedAction([result("Control", 80, 8), result("Treatment", 80, 16)]),
     "Review Treatment; it currently has the highest observed conversion rate.",
   );
+});
+
+test("uses OpenFeature exposure users when CDN evaluation does not create assignments", () => {
+  assert.equal(getExperimentResultUserTotal(0, 194), 194);
+  assert.equal(getExperimentResultUserTotal(201, 194), 201);
 });

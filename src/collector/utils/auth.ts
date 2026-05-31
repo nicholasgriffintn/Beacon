@@ -12,18 +12,7 @@ const normalizePath = (path: string): string => {
   return path;
 };
 
-const isExperimentAssignmentPath = (path: string): boolean => {
-  return /^\/api\/experiments\/[^/]+\/assign$/.test(path);
-};
-
-const isFlagResolutionPath = (method: string, path: string): boolean => {
-  return (
-    method === "POST" &&
-    (path === "/api/flags/resolve" || /^\/api\/flags\/[^/]+\/resolve$/.test(path))
-  );
-};
-
-export function isProtectedManagementPath(method: string, rawPath: string): boolean {
+export function isProtectedManagementPath(_method: string, rawPath: string): boolean {
   const path = normalizePath(rawPath);
 
   if (path === "/api/admin" || path.startsWith("/api/admin/")) {
@@ -35,11 +24,11 @@ export function isProtectedManagementPath(method: string, rawPath: string): bool
   }
 
   if (path === "/api/experiments" || path.startsWith("/api/experiments/")) {
-    return !isExperimentAssignmentPath(path);
+    return true;
   }
 
   if (path === "/api/flags" || path.startsWith("/api/flags/")) {
-    return !isFlagResolutionPath(method, path);
+    return true;
   }
 
   return false;

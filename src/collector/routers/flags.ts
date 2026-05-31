@@ -1,9 +1,8 @@
 import { Hono, type Context } from "hono";
 
-import type { Env, FlagCreate, FlagUpdate, FlagEvaluationRequest, BulkFlagEvaluationRequest } from "../types";
+import type { Env, FlagCreate, FlagUpdate } from "../types";
 import { FeatureFlagService } from "../services/feature-flag";
 import { publishCdnForMutation } from "../services/cdn-sync";
-import { hasValidApiKey } from "../utils/auth";
 import { getCdnPublishHeaders, type CdnPublishResult } from "../utils/cdn-publish";
 import { InputValidationError } from "../utils/errors";
 
@@ -128,66 +127,6 @@ flagsRouter.delete("/:flagKey", async (c: Context<{ Bindings: Env }>) => {
   } catch (error) {
     console.error(error);
     return c.json({ error: "Error deleting feature flag" }, 500);
-  }
-});
-
-flagsRouter.post("/:flagKey/resolve", async (c: Context<{ Bindings: Env }>) => {
-  try {
-    let evaluationRequest: FlagEvaluationRequest;
-    try {
-      const body = await c.req.json();
-      evaluationRequest = {
-        flag_key: c.req.param("flagKey"),
-        user_id: body.user_id,
-        attributes: body.attributes || {},
-        default_value: body.default_value
-      };
-    } catch {
-      return c.json({ error: "Invalid JSON payload" }, 400);
-    }
-
-    if (!evaluationRequest.user_id) {
-      return c.json({ error: "user_id is required" }, 400);
-    }
-
-    const flagService = new FeatureFlagService(c.env.DB, c.env.CACHE_KV);
-    const evaluation = await flagService.evaluateFlag(evaluationRequest);
-    
-    return c.json(evaluation, 200, {
-      "Cache-Control": "public, max-age=60", // 1 minute cache
-    });
-  } catch (error) {
-    console.error(error);
-    return c.json({ error: "Error evaluating feature flag" }, 500);
-  }
-});
-
-flagsRouter.post("/resolve", async (c: Context<{ Bindings: Env }>) => {
-  try {
-    let bulkRequest: BulkFlagEvaluationRequest;
-    try {
-      bulkRequest = await c.req.json();
-    } catch {
-      return c.json({ error: "Invalid JSON payload" }, 400);
-    }
-
-    if (!bulkRequest.user_id) {
-      return c.json({ error: "user_id is required" }, 400);
-    }
-
-    if ((!bulkRequest.flag_keys || bulkRequest.flag_keys.length === 0) && !hasValidApiKey(c)) {
-      return c.json({ error: "flag_keys are required for public bulk flag resolution" }, 400);
-    }
-
-    const flagService = new FeatureFlagService(c.env.DB, c.env.CACHE_KV);
-    const evaluations = await flagService.evaluateFlags(bulkRequest);
-    
-    return c.json(evaluations, 200, {
-      "Cache-Control": "public, max-age=60", // 1 minute cache
-    });
-  } catch (error) {
-    console.error(error);
-    return c.json({ error: "Error evaluating feature flags" }, 500);
   }
 });
 

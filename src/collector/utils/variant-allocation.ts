@@ -1,4 +1,4 @@
-import type { UserContext, Variant } from "../types";
+import type { Variant } from "../types";
 
 import { getDeterministicBucket } from "./bucketing.ts";
 
@@ -35,8 +35,8 @@ export function getVariantAllocationRanges(variants: Variant[]): VariantAllocati
   });
 }
 
-export function selectVariantForUser(experimentId: string, variants: Variant[], userContext: UserContext): Variant | null {
-  const bucket = getDeterministicBucket(`${experimentId}:${userContext.user_id}:variant`);
+export function selectVariantForTargetingKey(experimentId: string, variants: Variant[], targetingKey: string): Variant | null {
+  const bucket = getDeterministicBucket(`${experimentId}:${targetingKey}:variant`);
 
   for (const range of getVariantAllocationRanges(variants)) {
     if (bucket >= range.lower && bucket < range.upper) {

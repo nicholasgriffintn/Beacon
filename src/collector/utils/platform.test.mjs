@@ -6,8 +6,9 @@ import { getDeterministicBucket, isInPercentageBucket, stableStringify } from ".
 import { getCdnPublishHeaders, getCdnPublishScopesForMutation } from "./cdn-publish.ts";
 import { getHostnameFromUrl, isHostnameAllowed, isValidSiteDomain } from "./domains.ts";
 import { parseJsonRecord } from "./json.ts";
+import { createOpenFeatureTrackingEvent, matchesOpenFeatureValueType } from "./openfeature.ts";
 import { checkRateLimit, getRateLimitKey } from "./rate-limit.ts";
-import { getVariantAllocationRanges, selectVariantForUser } from "./variant-allocation.ts";
+import { getVariantAllocationRanges, selectVariantForTargetingKey } from "./variant-allocation.ts";
 
 test("protects management APIs while leaving client evaluation APIs public", () => {
   assert.equal(isProtectedManagementPath("GET", "/api/sites"), true);
@@ -15,16 +16,16 @@ test("protects management APIs while leaving client evaluation APIs public", () 
   assert.equal(isProtectedManagementPath("GET", "/api/experiments/exp_1/results"), true);
   assert.equal(isProtectedManagementPath("POST", "/api/experiments/exp_1/results/refresh"), true);
   assert.equal(isProtectedManagementPath("GET", "/api/experiments/client"), true);
-  assert.equal(isProtectedManagementPath("POST", "/api/experiments/exp_1/assign"), false);
-  assert.equal(isProtectedManagementPath("GET", "/api/cdn/experiments/latest"), false);
-  assert.equal(isProtectedManagementPath("POST", "/api/flags/checkout/resolve"), false);
-  assert.equal(isProtectedManagementPath("POST", "/api/flags/resolve"), false);
+  assert.equal(isProtectedManagementPath("PUT", "/api/experiments/exp_1"), true);
+  assert.equal(isProtectedManagementPath("POST", "/api/openfeature/v1/evaluate"), false);
+  assert.equal(isProtectedManagementPath("POST", "/api/openfeature/v1/track"), false);
+  assert.equal(isProtectedManagementPath("GET", "/api/cdn/openfeature/latest"), false);
 });
 
 test("selects CDN publish scopes for management mutations", () => {
-  assert.deepEqual(getCdnPublishScopesForMutation("site"), ["sites", "experiments", "flags"]);
-  assert.deepEqual(getCdnPublishScopesForMutation("experiment"), ["experiments"]);
-  assert.deepEqual(getCdnPublishScopesForMutation("flag"), ["flags"]);
+  assert.deepEqual(getCdnPublishScopesForMutation("site"), ["sites", "flags", "openfeature"]);
+  assert.deepEqual(getCdnPublishScopesForMutation("experiment"), ["openfeature"]);
+  assert.deepEqual(getCdnPublishScopesForMutation("flag"), ["flags", "openfeature"]);
 
   assert.deepEqual(getCdnPublishHeaders({
     flags: {
@@ -67,7 +68,7 @@ test("allocates users across all positive-weight variants", () => {
   const counts = Object.fromEntries(variants.map(variant => [variant.id, 0]));
 
   for (let index = 0; index < 10000; index += 1) {
-    const variant = selectVariantForUser("logo", variants, { user_id: `user-${index}` });
+    const variant = selectVariantForTargetingKey("logo", variants, `user-${index}`);
     counts[variant.id] += 1;
   }
 
@@ -96,6 +97,38 @@ test("parses JSON object columns defensively", () => {
   assert.deepEqual(parseJsonRecord('{"enabled":true}'), { enabled: true });
   assert.deepEqual(parseJsonRecord("[1,2,3]"), {});
   assert.deepEqual(parseJsonRecord("not json"), {});
+});
+
+test("matches OpenFeature object values as structured objects only", () => {
+  assert.equal(matchesOpenFeatureValueType({ enabled: true }, "object"), true);
+  assert.equal(matchesOpenFeatureValueType(null, "object"), false);
+  assert.equal(matchesOpenFeatureValueType(["enabled"], "object"), false);
+});
+
+test("maps OpenFeature tracking requests into analytics events", () => {
+  const event = createOpenFeatureTrackingEvent({
+    trackingEventName: "signup_click",
+    context: {
+      siteId: "beacon-docs",
+      targetingKey: "user-1",
+    },
+    details: {
+      flagKey: "home_hero_test",
+      flagSource: "feature_flag",
+      experimentId: "exp_home_hero_test",
+      conversionId: "signup_click",
+      value: 1,
+    },
+  });
+
+  assert.equal(event?.s, "beacon-docs");
+  assert.equal(event?.user_id, "user-1");
+  assert.equal(event?.event_name, "feature_flag_tracking");
+  assert.equal(event?.event_value, 1);
+  assert.equal(event?.properties.flag_key, "home_hero_test");
+  assert.equal(event?.properties.flag_source, "feature_flag");
+  assert.equal(event?.properties.experiment_id, "exp_home_hero_test");
+  assert.equal(event?.properties.conversion_id, "signup_click");
 });
 
 test("enforces fixed-window KV rate limits", async () => {

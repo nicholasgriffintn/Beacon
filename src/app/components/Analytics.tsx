@@ -2,22 +2,12 @@ import { useEffect } from "react";
 
 const IS_PRODUCTION = import.meta.env.PROD;
 const BEACON_ENDPOINT = IS_PRODUCTION
-  ? "https://beacon.polychat.app"
+  ? "https://beacon.nicholasgriffin.dev"
   : "http://localhost:5173";
-
-type Variant = {
-  id: string;
-  name?: string;
-  activate: (config: Record<string, string>) => void;
-};
-
-export type Experiment = {
-  id: string;
-  name?: string;
-  description?: string;
-  autoActivate?: boolean;
-  variants: Variant[];
-};
+const BEACON_CDN_ENDPOINT = "https://beacon-cdn.nicholasgriffin.dev";
+const SHOULD_TRACK_CLICKS = true;
+const SHOULD_TRACK_USER_TIMINGS = true;
+const RESPECT_DO_NOT_TRACK = false;
 
 declare global {
   interface Window {
@@ -26,6 +16,7 @@ declare global {
       config: Record<string, string>;
       init: (config: {
         endpoint: string;
+        cdnEndpoint?: string;
         siteId: string;
         debug: boolean;
         trackClicks: boolean;
@@ -54,27 +45,41 @@ declare global {
       getUserId: () => string;
     };
     _beaconInitialized?: boolean;
-    _expBeaconInitialized?: boolean;
-    BeaconExperiments?: {
+    _openFeatureInitialized?: boolean;
+    BeaconOpenFeature?: {
       init: (config: {
         endpoint: string;
+        cdnEndpoint?: string;
         siteId?: string;
         debug: boolean;
-      }) => void;
-      defineExperimentBehaviors: (experiments: Experiment[]) => void;
-      activate: (experimentId: string) => Promise<boolean>;
-      getVariant: (experimentId: string) => Promise<{
-        variant_id: string;
-        config: Record<string, string>;
-      } | null>;
-      forceVariant: (experimentId: string, variantId: string) => void;
+      }) => Promise<unknown>;
+      getObjectDetails: (
+        flagKey: string,
+        defaultValue: Record<string, string>,
+        context?: Record<string, unknown>,
+      ) => Promise<{
+        flagKey: string;
+        value: Record<string, string>;
+        variant?: string;
+        reason?: string;
+        errorCode?: string;
+        errorMessage?: string;
+        flagMetadata: Record<string, string | number | boolean>;
+      }>;
+      track: (
+        trackingEventName: string,
+        context?: Record<string, unknown>,
+        details?: Record<string, unknown>,
+      ) => void;
     };
+    OpenFeature?: Window["BeaconOpenFeature"];
   }
 }
 
 export function Analytics({
   isEnabled = true,
   beaconEndpoint = BEACON_ENDPOINT,
+  beaconCdnEndpoint = BEACON_CDN_ENDPOINT,
   beaconSiteId = "test-beacon",
   beaconDebug = false,
   directEvents = false,
@@ -84,6 +89,7 @@ export function Analytics({
 }: {
   isEnabled?: boolean;
   beaconEndpoint?: string;
+  beaconCdnEndpoint?: string;
   beaconSiteId?: string;
   beaconDebug?: boolean;
   directEvents?: boolean;
@@ -116,11 +122,12 @@ export function Analytics({
       if (window.Beacon) {
         window.Beacon.init({
           endpoint: beaconEndpoint,
+          cdnEndpoint: beaconCdnEndpoint,
           siteId: beaconSiteId,
           debug: beaconDebug,
-          trackClicks: true,
-          trackUserTimings: true,
-          respectDoNotTrack: false,
+          trackClicks: SHOULD_TRACK_CLICKS,
+          trackUserTimings: SHOULD_TRACK_USER_TIMINGS,
+          respectDoNotTrack: RESPECT_DO_NOT_TRACK,
           directEvents,
           directPageViews,
           batchSize,
@@ -141,7 +148,7 @@ export function Analytics({
     }
 
     if (
-      window._expBeaconInitialized ||
+      window._openFeatureInitialized ||
       document.querySelector(
         `script[src="${beaconEndpoint}/exp-beacon.min.js"]`,
       )
@@ -149,17 +156,18 @@ export function Analytics({
       return;
     }
 
-    window._expBeaconInitialized = true;
+    window._openFeatureInitialized = true;
 
     const script = document.createElement("script");
     script.src = `${beaconEndpoint}/exp-beacon.min.js`;
     script.async = true;
 
     script.onload = () => {
-      if (window.BeaconExperiments) {
-        window.BeaconExperiments.init({
+      if (window.BeaconOpenFeature) {
+        window.BeaconOpenFeature.init({
           debug: beaconDebug,
           endpoint: beaconEndpoint,
+          cdnEndpoint: beaconCdnEndpoint,
           siteId: beaconSiteId,
         });
       }

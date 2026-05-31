@@ -4,6 +4,8 @@ import { SiteService } from "../services/site";
 import type { Env } from "../types";
 import { hasValidApiKey, isProtectedManagementPath } from "./auth";
 import { getOriginFromHeaders } from "./domains";
+import { isRecord } from "./json";
+import { getSiteIdFromEvaluationContext } from "./openfeature";
 import { checkRequestRateLimit, type RateLimitResult } from "./rate-limit";
 
 const MAX_BATCH_EVENTS = 100;
@@ -16,18 +18,13 @@ function rateLimitedResponse(c: Context, result: RateLimitResult) {
   });
 }
 
-function getExperimentAssignmentScope(path: string): string | null {
-  const match = /^\/api\/experiments\/([^/]+)\/assign$/.exec(path);
-  return match?.[1] ? `experiment:${match[1]}` : null;
-}
-
-function getFlagEvaluationScope(path: string): string | null {
-  if (path === "/api/flags/resolve") {
-    return "flags:bulk";
+function getOpenFeatureEvaluationScope(path: string, body?: Record<string, unknown>): string | null {
+  if (path !== "/api/openfeature/v1/evaluate") {
+    return null;
   }
 
-  const match = /^\/api\/flags\/([^/]+)\/resolve$/.exec(path);
-  return match?.[1] ? `flag:${match[1]}` : null;
+  const flagKey = body?.flagKey;
+  return typeof flagKey === "string" && flagKey ? `openfeature:${flagKey}` : "openfeature";
 }
 
 export async function validateSite(c: Context<{ Bindings: Env }>, siteId: string): Promise<{ valid: boolean; error?: string }> {
@@ -60,12 +57,33 @@ export function createMiddleware() {
       return next();
     }
 
-    const evaluationScope = getExperimentAssignmentScope(path) || getFlagEvaluationScope(path);
-    if (method === "POST" && evaluationScope) {
-      const rateLimit = await checkRequestRateLimit(c, "evaluations", evaluationScope);
+    if (method === "POST" && path.startsWith("/api/openfeature/v1/")) {
+      let requestData: Record<string, unknown>;
+      try {
+        const clonedRequest = c.req.raw.clone();
+        requestData = await clonedRequest.json();
+      } catch {
+        return c.json({ error: "Invalid JSON payload" }, 400);
+      }
+
+      const context = isRecord(requestData.context) ? requestData.context : {};
+      const siteId = getSiteIdFromEvaluationContext(context);
+      if (!siteId) {
+        return c.json({ error: "Evaluation context must include siteId" }, 400);
+      }
+
+      const rateLimit = await checkRequestRateLimit(c, "evaluations", getOpenFeatureEvaluationScope(path, requestData) || "openfeature");
       if (!rateLimit.allowed) {
         return rateLimitedResponse(c, rateLimit);
       }
+
+      const validation = await validateSite(c, siteId);
+      if (!validation.valid) {
+        return c.json({ error: "Site validation failed" }, 403);
+      }
+
+      await next();
+      return;
     }
 
     const isEventsApi = path.startsWith("/api/events/");

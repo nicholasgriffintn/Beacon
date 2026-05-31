@@ -83,20 +83,11 @@ export interface FlagEvaluationResponse {
   flag_key: string;
   user_id: string;
   variation_key?: string;
+  variant_name?: string;
   value: any;
   reason: FlagReason;
   enabled: boolean;
+  experiment_id?: string;
+  experiment_name?: string;
   cached?: boolean;
-}
-
-export interface BulkFlagEvaluationRequest {
-  user_id: string;
-  attributes?: Record<string, any>;
-  flag_keys?: string[]; // If not provided, evaluates all flags
-}
-
-export interface BulkFlagEvaluationResponse {
-  user_id: string;
-  flags: Record<string, FlagEvaluationResponse>;
-  evaluated_at: string;
 }

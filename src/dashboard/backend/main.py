@@ -114,28 +114,37 @@ async def experiments_page(request: Request):
             
             sites_response = await client.get(f"{WORKER_BASE_URL}/api/sites", headers=worker_headers())
             sites = sites_response.json() if sites_response.status_code == 200 else []
+
+            flags_response = await client.get(f"{WORKER_BASE_URL}/api/flags", headers=worker_headers())
+            flags = flags_response.json() if flags_response.status_code == 200 else []
     except httpx.HTTPError:
         experiments = []
         sites = []
+        flags = []
     
     return templates.TemplateResponse("experiments.html", {
         "request": request, 
         "experiments": experiments,
-        "sites": sites
+        "sites": sites,
+        "flags": flags,
     })
 
 @app.post("/experiments/create")
 async def create_experiment(
+    flag_key: str = Form(...),
     name: str = Form(...),
     description: str = Form(""),
     experiment_type: str = Form(...),
+    site_id: str = Form(""),
     traffic_allocation: float = Form(100.0),
 ):
     async with httpx.AsyncClient() as client:
         response = await client.post(f"{WORKER_BASE_URL}/api/experiments", json={
+            "flag_key": flag_key,
             "name": name,
             "description": description,
             "type": experiment_type,
+            "site_id": site_id or None,
             "traffic_allocation": traffic_allocation,
             "variants": [
                 {"name": "Control", "type": "control", "config": {}, "traffic_percentage": 50},
@@ -223,16 +232,6 @@ async def toggle_flag(flag_key: str):
 async def admin_page(request: Request):
     return templates.TemplateResponse("admin.html", {"request": request})
 
-@app.post("/admin/publish/experiments")
-async def publish_experiments():
-    async with httpx.AsyncClient() as client:
-        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/experiments", headers=worker_headers())
-    
-    if response.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to publish experiments")
-    
-    return RedirectResponse(url="/admin", status_code=303)
-
 @app.post("/admin/publish/sites")
 async def publish_sites():
     async with httpx.AsyncClient() as client:
@@ -250,6 +249,16 @@ async def publish_flags():
     
     if response.status_code != 200:
         raise HTTPException(status_code=400, detail="Failed to publish feature flags")
+    
+    return RedirectResponse(url="/admin", status_code=303)
+
+@app.post("/admin/publish/openfeature")
+async def publish_openfeature():
+    async with httpx.AsyncClient() as client:
+        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/openfeature", headers=worker_headers())
+    
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to publish OpenFeature config")
     
     return RedirectResponse(url="/admin", status_code=303)
 

@@ -5,6 +5,8 @@ export interface Env {
   ADMIN_API_KEY?: string;
   RATE_LIMIT_EVENTS_PER_MINUTE?: string;
   RATE_LIMIT_EVALUATIONS_PER_MINUTE?: string;
+  SENTRY_DSN?: string;
+  SENTRY_TRACES_SAMPLE_RATE?: string;
   ANALYTICS_PIPELINE: {
     send(records: Record<string, unknown>[]): Promise<void>;
   };

@@ -5,6 +5,7 @@ export type MetricDataType = 'continuous' | 'binary' | 'count';
 
 export interface Experiment {
   id: string;
+  flag_key: string;
   name: string;
   description?: string;
   type: ExperimentType;
@@ -31,19 +32,6 @@ export interface Variant {
   traffic_percentage: number;
 }
 
-export interface UserContext {
-  user_id: string;
-  session_id?: string;
-  attributes?: Record<string, any>;
-}
-
-export interface VariantAssignment {
-  experiment_id: string;
-  variant_id: string;
-  variant_name: string;
-  config: Record<string, any>;
-}
-
 export interface Metric {
   name: string;
   description?: string;
@@ -52,6 +40,8 @@ export interface Metric {
 }
 
 export interface ExperimentCreate {
+  id?: string;
+  flag_key: string;
   name: string;
   description?: string;
   type: ExperimentType;

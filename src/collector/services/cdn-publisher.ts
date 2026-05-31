@@ -11,29 +11,6 @@ export interface PublishedDefinition {
   url: string;
 }
 
-interface PublishedExperiment {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  site_id?: string;
-  targeting_rules: Record<string, unknown>;
-  traffic_allocation: number;
-  variants: Array<{
-    id: string;
-    name: string;
-    type: string;
-    config: Record<string, unknown>;
-    traffic_percentage: number;
-  }>;
-}
-
-interface PublishedExperimentsConfig {
-  version: string;
-  updated_at: string;
-  experiments: PublishedExperiment[];
-}
-
 interface PublishedSitesConfig {
   version: string;
   updated_at: string;
@@ -62,8 +39,37 @@ interface PublishedFlagsConfig {
   }>;
 }
 
-export type CdnConfigType = 'experiments' | 'sites' | 'flags';
-export type PublishedConfig = PublishedExperimentsConfig | PublishedSitesConfig | PublishedFlagsConfig;
+interface PublishedOpenFeatureConfig {
+  version: string;
+  updated_at: string;
+  flags: Array<{
+    flagKey: string;
+    name: string;
+    description?: string;
+    site_id?: string;
+    enabled: boolean;
+    kill_switch: boolean;
+    defaultValue: unknown;
+    targetingRules: unknown[];
+    rolloutPercentage: number;
+    variations: unknown[];
+    experiment?: {
+      id: string;
+      name: string;
+      site_id?: string;
+      trafficAllocation: number;
+      variants: Array<{
+        key: string;
+        name: string;
+        value: unknown;
+        trafficPercentage: number;
+      }>;
+    };
+  }>;
+}
+
+export type CdnConfigType = 'sites' | 'flags' | 'openfeature';
+export type PublishedConfig = PublishedSitesConfig | PublishedFlagsConfig | PublishedOpenFeatureConfig;
 
 export function isGlobalOrActiveSite(siteId: string | undefined, activeSiteIds: Set<string>): boolean {
   return !siteId || activeSiteIds.has(siteId);
@@ -134,55 +140,6 @@ export class CDNPublisher {
     });
 
     return { etag, version };
-  }
-
-  async publishExperiments(): Promise<PublishedDefinition> {
-    const experimentService = new ExperimentService(this.db);
-    const siteService = new SiteService(this.db);
-    const [experiments, sites] = await Promise.all([
-      experimentService.listExperiments(),
-      siteService.listSites(),
-    ]);
-    const activeSiteIds = new Set(
-      sites
-        .filter(site => site.status === 'active')
-        .map(site => site.site_id),
-    );
-    
-    const activeExperiments = experiments.filter(exp => {
-      return exp.status === 'running' && isGlobalOrActiveSite(exp.site_id, activeSiteIds);
-    });
-    
-    const exportData = {
-      version: this.generateVersion(),
-      updated_at: new Date().toISOString(),
-      experiments: activeExperiments.map(exp => ({
-        id: exp.id,
-        name: exp.name,
-        type: exp.type,
-        status: exp.status,
-        site_id: exp.site_id,
-        targeting_rules: exp.targeting_rules,
-        traffic_allocation: exp.traffic_allocation,
-        variants: exp.variants.map(variant => ({
-          id: variant.id,
-          name: variant.name,
-          type: variant.type,
-          config: variant.config,
-          traffic_percentage: variant.traffic_percentage,
-        })),
-      })),
-    };
-
-    const content = JSON.stringify(exportData, null, 2);
-    const { etag, version } = await this.putToR2('experiments', content);
-
-    return {
-      version,
-      etag,
-      lastModified: new Date().toISOString(),
-      url: `${this.baseUrl}/config/v1/experiments/${version}.json`,
-    };
   }
 
   async publishSites(): Promise<PublishedDefinition> {
@@ -257,18 +214,89 @@ export class CDNPublisher {
     };
   }
 
+  async publishOpenFeature(): Promise<PublishedDefinition> {
+    const experimentService = new ExperimentService(this.db);
+    const flagService = new FeatureFlagService(this.db);
+    const siteService = new SiteService(this.db);
+    const [experiments, flags, sites] = await Promise.all([
+      experimentService.listExperiments(),
+      flagService.listFlags(),
+      siteService.listSites(),
+    ]);
+    const activeSiteIds = new Set(
+      sites
+        .filter(site => site.status === 'active')
+        .map(site => site.site_id),
+    );
+    const activeExperiments = experiments.filter(exp => {
+      return exp.status === 'running' && isGlobalOrActiveSite(exp.site_id, activeSiteIds);
+    });
+    const siteScopedFlags = flags.filter(flag => {
+      return isGlobalOrActiveSite(flag.site_id, activeSiteIds);
+    });
+    const experimentsByFlagKey = new Map<string, typeof activeExperiments[number]>();
+    for (const experiment of activeExperiments) {
+      if (!experimentsByFlagKey.has(experiment.flag_key)) {
+        experimentsByFlagKey.set(experiment.flag_key, experiment);
+      }
+    }
+
+    const exportData: PublishedOpenFeatureConfig = {
+      version: this.generateVersion(),
+      updated_at: new Date().toISOString(),
+      flags: siteScopedFlags.map(flag => {
+        const experiment = experimentsByFlagKey.get(flag.flag_key);
+
+        return {
+          flagKey: flag.flag_key,
+          name: flag.name,
+          description: flag.description,
+          site_id: flag.site_id,
+          enabled: flag.enabled,
+          kill_switch: flag.kill_switch,
+          defaultValue: flag.default_value,
+          targetingRules: flag.targeting_rules,
+          rolloutPercentage: flag.rollout_percentage,
+          variations: flag.variations,
+          experiment: experiment ? {
+            id: experiment.id,
+            name: experiment.name,
+            site_id: experiment.site_id,
+            trafficAllocation: experiment.traffic_allocation,
+            variants: experiment.variants.map(variant => ({
+              key: variant.id,
+              name: variant.name,
+              value: this.getExperimentVariantValue(variant.config),
+              trafficPercentage: variant.traffic_percentage,
+            })),
+          } : undefined,
+        };
+      }),
+    };
+
+    const content = JSON.stringify(exportData, null, 2);
+    const { etag, version } = await this.putToR2('openfeature', content);
+
+    return {
+      version,
+      etag,
+      lastModified: new Date().toISOString(),
+      url: `${this.baseUrl}/config/v1/openfeature/${version}.json`,
+    };
+  }
+
   async publishAll(): Promise<{
-    experiments: PublishedDefinition;
     sites: PublishedDefinition;
     flags: PublishedDefinition;
+    openfeature: PublishedDefinition;
   }> {
-    const [experiments, sites, flags] = await Promise.all([
-      this.publishExperiments(),
+    const [sites, flags, openfeature] = await Promise.all([
       this.publishSites(),
       this.publishFlags(),
+      this.publishOpenFeature(),
     ]);
 
-    return { experiments, sites, flags };
+    return { sites, flags, openfeature };
   }
 
   async getPublishedInfo(type: CdnConfigType): Promise<PublishedDefinition | null> {
@@ -326,5 +354,13 @@ export class CDNPublisher {
     } catch {
       return null;
     }
+  }
+
+  private getExperimentVariantValue(config: Record<string, unknown>): unknown {
+    if (Object.prototype.hasOwnProperty.call(config, 'value')) {
+      return config.value;
+    }
+
+    return config;
   }
 }

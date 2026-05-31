@@ -5,21 +5,6 @@ import { CDNPublisher } from "../services/cdn-publisher";
 
 const adminRouter = new Hono<{ Bindings: Env }>();
 
-adminRouter.post("/publish/experiments", async (c: Context) => {
-  try {
-    const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);
-    const result = await publisher.publishExperiments();
-    
-    return c.json({
-      message: "Experiments published successfully",
-      ...result
-    });
-  } catch (error) {
-    console.error(error);
-    return c.json({ error: "Error publishing experiments" }, 500);
-  }
-});
-
 adminRouter.post("/publish/sites", async (c: Context) => {
   try {
     const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);
@@ -38,15 +23,34 @@ adminRouter.post("/publish/sites", async (c: Context) => {
 adminRouter.post("/publish/flags", async (c: Context) => {
   try {
     const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);
-    const result = await publisher.publishFlags();
+    const [flags, openfeature] = await Promise.all([
+      publisher.publishFlags(),
+      publisher.publishOpenFeature(),
+    ]);
     
     return c.json({
       message: "Feature flags published successfully",
-      ...result
+      flags,
+      openfeature,
     });
   } catch (error) {
     console.error(error);
     return c.json({ error: "Error publishing feature flags" }, 500);
+  }
+});
+
+adminRouter.post("/publish/openfeature", async (c: Context) => {
+  try {
+    const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);
+    const openfeature = await publisher.publishOpenFeature();
+    
+    return c.json({
+      message: "OpenFeature config published successfully",
+      openfeature,
+    });
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Error publishing OpenFeature config" }, 500);
   }
 });
 

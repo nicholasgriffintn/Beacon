@@ -5,7 +5,7 @@ This is a comprehensive analytics and experimentation platform built on Cloudfla
 **Key Features:**
 
 - **Edge-native collection**: Runs on Cloudflare Workers with D1, KV, R2, and Pipelines.
-- **A/B testing**: Supports experiment lifecycle, sticky assignment, CDN-published configs, and exposure/conversion tracking.
+- **A/B testing**: Supports experiment lifecycle, sticky deterministic allocation, CDN-published configs, and exposure/conversion tracking.
 - **Feature flags**: Supports targeting rules, rollout controls, kill switches, evaluation logging, and CDN-published flag definitions.
 - **Site validation**: Enforces registered domains before accepting analytics events.
 - **Abuse controls**: Applies per-site/client rate limits to event ingestion and public evaluation endpoints.
@@ -109,46 +109,49 @@ podman compose up
 - `DELETE /api/sites/:siteId` - Delete site
 
 #### CDN Configuration
-- `GET /api/cdn/experiments/latest?site_id=:siteId` - Get the published experiment config for a browser client
-- `GET /api/cdn/experiments/:version?site_id=:siteId` - Get a specific published experiment config version
-- `GET /api/cdn/experiments/info` - Get latest experiment publish metadata
-- `GET /api/cdn/experiments/versions` - List published experiment config versions
 - `GET /api/cdn/flags/latest?site_id=:siteId` - Get the published feature flag config for a browser client
 - `GET /api/cdn/flags/:version?site_id=:siteId` - Get a specific published feature flag config version
 - `GET /api/cdn/flags/info` - Get latest feature flag publish metadata
 - `GET /api/cdn/flags/versions` - List published feature flag config versions
+- `GET /api/cdn/openfeature/latest?site_id=:siteId` - Get the published OpenFeature config for a browser client
+- `GET /api/cdn/openfeature/:version?site_id=:siteId` - Get a specific published OpenFeature config version
+- `GET /api/cdn/openfeature/info` - Get latest OpenFeature publish metadata
+- `GET /api/cdn/openfeature/versions` - List published OpenFeature config versions
 - `GET /api/cdn/sites/latest` - Get the published site config
 - `GET /api/cdn/sites/:version` - Get a specific published site config version
 - `GET /api/cdn/sites/info` - Get latest site publish metadata
 - `GET /api/cdn/sites/versions` - List published site config versions
 
-#### Experiment Management (`X-API-Key` required except assignment)
+#### Experiment Management (`X-API-Key` required)
 - `GET /api/experiments` - List experiments
 - `POST /api/experiments` - Create experiment
 - `GET /api/experiments/:id` - Get experiment
 - `PUT /api/experiments/:id` - Update experiment
-- `POST /api/experiments/:id/assign` - Assign variant to user
 
 #### Experiment Results (`X-API-Key` required)
 - `GET /api/experiments/:id/results` - Get latest results
-- `POST /api/experiments/:id/results/refresh` - Generate and publish the latest results from D1 assignment and experiment event data
+- `POST /api/experiments/:id/results/refresh` - Generate and publish the latest results from OpenFeature exposure and conversion data
 - `GET /api/experiments/:id/results/history` - Get results history
 - `GET /api/experiments/:id/results/:timestamp` - Get specific result
 
-#### Feature Flags (`X-API-Key` required except resolution)
+#### Feature Flags (`X-API-Key` required)
 - `GET /api/flags` - List feature flags
 - `POST /api/flags` - Create feature flag
 - `GET /api/flags/:flagKey` - Get flag details
 - `PUT /api/flags/:flagKey` - Update flag
 - `DELETE /api/flags/:flagKey` - Delete flag
-- `POST /api/flags/:flagKey/resolve` - Resolve flag for user
-- `POST /api/flags/resolve` - Bulk flag resolution. Public calls must include `flag_keys`; resolving every enabled flag requires `X-API-Key`.
+
+#### OpenFeature Provider API
+- `GET /api/openfeature/v1/provider/metadata` - Get provider metadata
+- `GET /api/openfeature/v1/provider/status` - Get provider readiness
+- `POST /api/openfeature/v1/evaluate` - Evaluate a flag, including any running experiment nested under it, for server-side OpenFeature clients
+- `POST /api/openfeature/v1/track` - Record OpenFeature tracking calls through the analytics event pipeline
 
 #### CDN Publishing
-- `POST /api/admin/publish/experiments` - Publish experiments to CDN
 - `POST /api/admin/publish/flags` - Publish feature flags to CDN
 - `POST /api/admin/publish/sites` - Publish sites to CDN
-- `POST /api/admin/publish/all` - Publish all definitions
+- `POST /api/admin/publish/openfeature` - Publish the combined OpenFeature config to CDN
+- `POST /api/admin/publish/all` - Publish all definitions, including the combined OpenFeature config
 
 ### Authentication
 
@@ -164,7 +167,7 @@ curl -H "X-API-Key: your-api-key" https://your-api.com/api/sites
 Public endpoints are rate-limited by client address and scope:
 
 - `RATE_LIMIT_EVENTS_PER_MINUTE` controls `/api/events/*` per site.
-- `RATE_LIMIT_EVALUATIONS_PER_MINUTE` controls experiment assignment and feature flag resolution per experiment or flag.
+- `RATE_LIMIT_EVALUATIONS_PER_MINUTE` controls OpenFeature evaluation per flag.
 
 Defaults are configured in `wrangler.jsonc` and can be changed per deployment.
 
@@ -211,6 +214,7 @@ Include the script in your HTML:
 ## Configuration Options
 
 - **endpoint**: API endpoint URL
+- **cdnEndpoint**: CDN endpoint URL for published OpenFeature definitions
 - **siteId**: Your site's unique identifier (required)
 - **debug**: Enable console logging (default: false)
 - **trackPageViews**: Automatically track page views (default: true)
@@ -286,155 +290,176 @@ Beacon.init({
 });
 ```
 
-## Experiments
+## OpenFeature Flags and Experiments
 
-Beacon includes an experiments module for A/B testing and feature flagging.
+Beacon exposes feature flags and experiments through one OpenFeature provider surface. Feature flags are the canonical OpenFeature flags. Experiments attach to a flag and allocate that flag's variations while the experiment is running.
+
+The browser provider loads published definitions from the CDN at `/config/v1/openfeature/latest.json`. It does not call the evaluation API for browser-side flag resolution. The Worker OpenFeature API remains available for server-side clients that cannot use the static CDN config.
 
 ### Initialization
 
 ```javascript
-// Initialize Beacon first
 Beacon.init({
   siteId: 'YOUR_SITE_ID',
   endpoint: 'https://<your-worker-url>',
   debug: true
 });
 
-// Initialize the experiments module
-BeaconExperiments.init({
+await BeaconOpenFeature.init({
   endpoint: 'https://<your-worker-url>',
+  cdnEndpoint: 'https://<your-cdn-url>',
   siteId: 'YOUR_SITE_ID',
   debug: true
 });
 ```
 
-### Defining Experiments
+### Creating Experiment Values
 
-Create experiment definitions in the management dashboard or through the experiment API, then publish them from the Admin page. The browser extension loads the published CDN config and applies the matching behaviour you define in code.
+Create the OpenFeature flag first, then attach an experiment to that flag in the management dashboard or through the experiment API. The flag key is the public OpenFeature `flagKey`; the experiment keeps its own internal `id` and allocates the flag's variations while it is running. Each experiment variant should include a config object. If `config.value` is present, that value becomes the OpenFeature resolved value. Otherwise, Beacon returns the full config object.
 
-To extend them with custom logic, you can use the `defineExperimentBehaviors` function.
+Example variants for an object-valued experiment:
 
 ```javascript
-BeaconExperiments.defineExperimentBehaviors([
+[
   {
-    id: 'experiment_id',
-    name: 'Experiment Name',
-    description: 'Description of what we're testing',
-    autoActivate: true,
-    variants: [
-      {
-        id: 'control',
-        name: 'Control Variant',
-        activate: function(config) {
-          // Control variant implementation
-          // config contains any server-provided configuration
-        }
-      },
-      {
-        id: 'variant_a',
-        name: 'Variant A',
-        activate: function(config) {
-          // Variant A implementation using config
-        }
-      }
-    ]
+    name: 'Control',
+    type: 'control',
+    traffic_percentage: 50,
+    config: {
+      bgColor: '#ffffff',
+      textColor: '#333333'
+    }
+  },
+  {
+    name: 'Dark',
+    type: 'treatment',
+    traffic_percentage: 50,
+    config: {
+      bgColor: '#111827',
+      textColor: '#f9fafb'
+    }
   }
-]);
+]
 ```
 
-### Activating Experiments
+Example variants for a string-valued experiment:
 
 ```javascript
-// Activate all experiments
-await BeaconExperiments.activateAll();
-
-// Or activate a specific experiment
-await BeaconExperiments.activate('experiment_id');
+[
+  {
+    name: 'Control',
+    type: 'control',
+    traffic_percentage: 50,
+    config: { value: 'control' }
+  },
+  {
+    name: 'Treatment',
+    type: 'treatment',
+    traffic_percentage: 50,
+    config: { value: 'treatment' }
+  }
+]
 ```
 
-### Tracking Conversions
+### Evaluating Flags
 
 ```javascript
-// Track a conversion for an experiment
-BeaconExperiments.trackConversion('experiment_id', 'conversion_name', optionalValue, optionalProperties);
-```
+const details = await BeaconOpenFeature.getObjectDetails('color_scheme', {});
 
-### Checking Variants
-
-```javascript
-// Get full variant information including config
-const variant = await BeaconExperiments.getVariant('experiment_id');
-if (variant) {
-  console.log(variant.variant_id); // The assigned variant ID
-  console.log(variant.config); // Any configuration for this variant
-}
-
-// Check if user is in a specific variant
-if (await BeaconExperiments.isInVariant('experiment_id', 'variant_id')) {
-  // Variant-specific code
+if (details.variant === 'color_scheme_dark') {
+  applyDarkTheme(details.value);
+} else {
+  applyDefaultTheme(details.value);
 }
 ```
 
-### Debugging
+Typed helpers are available for boolean, string, number, and object flags:
 
-The following helper functions are available when debug mode is enabled:
+```javascript
+const enabled = await BeaconOpenFeature.getBooleanValue('checkout_enabled', false);
+const headline = await BeaconOpenFeature.getStringValue('headline_copy', 'Default headline');
+const weight = await BeaconOpenFeature.getNumberValue('ranking_weight', 1);
+```
 
-- `BeaconExperiments.resetAssignments()` - Reset all experiment assignments
-- `BeaconExperiments.forceVariant(experimentId, variantId)` - Force a specific variant for testing
-- `BeaconExperiments.getUserId()` - Get the current user ID used for experiments
+### Tracking
+
+Use `track` for OpenFeature tracking events. Beacon records these through the analytics event pipeline so experiment results can join evaluations and conversions by flag, variant, and targeting key.
+
+```javascript
+BeaconOpenFeature.track('signup_click', {}, {
+  flagKey: 'home_hero_test',
+  flagSource: 'feature_flag',
+  conversionId: 'signup_click',
+  value: 1
+});
+```
+
+### Direct Provider Request
+
+```javascript
+const response = await fetch('https://<your-worker-url>/api/openfeature/v1/evaluate', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    flagKey: 'home_hero_test',
+    defaultValue: 'control',
+    flagValueType: 'string',
+    context: {
+      targetingKey: 'user-123',
+      siteId: 'YOUR_SITE_ID'
+    }
+  })
+});
+
+const details = await response.json();
+// {
+//   flagKey: 'home_hero_test',
+//   value: 'treatment',
+//   reason: 'SPLIT',
+//   variant: 'variant_id',
+//   flagMetadata: {
+//     provider_name: 'beacon',
+//     source: 'feature_flag',
+//     experiment_id: 'experiment_id'
+//   }
+// }
+```
 
 ### Complete Example
 
 ```javascript
-// Initialize both modules
 Beacon.init({
   siteId: 'YOUR_SITE_ID',
   endpoint: 'https://<your-worker-url>',
   debug: true
 });
 
-BeaconExperiments.init({
+await BeaconOpenFeature.init({
   endpoint: 'https://<your-worker-url>',
+  cdnEndpoint: 'https://<your-cdn-url>',
   siteId: 'YOUR_SITE_ID',
   debug: true
 });
 
-// Define a homepage hero test
-BeaconExperiments.defineExperimentBehaviors([
-  {
-    id: 'home_hero_test',
-    name: 'Homepage Hero Variant Test',
-    description: 'Testing different hero section designs',
-    autoActivate: true,
-    variants: [
-      {
-        id: 'control',
-        name: 'Current Design',
-        activate: function(config) {
-          // Apply the control design using config
-          document.querySelector('.hero').style.layout = config.layout || 'default';
-        }
-      },
-      {
-        id: 'variant_a',
-        name: 'New Design',
-        activate: function(config) {
-          // Apply the new design using config
-          document.querySelector('.hero').style.layout = config.layout || 'new';
-          if (config.showCta) {
-            document.querySelector('.hero-cta').style.display = 'block';
-          }
-        }
-      }
-    ]
+const hero = await BeaconOpenFeature.getObjectDetails('home_hero_test', {
+  layout: 'default',
+  showCta: false
+});
+
+if (hero.value.layout === 'new') {
+  document.querySelector('.hero').classList.add('hero--new');
+
+  if (hero.value.showCta) {
+    document.querySelector('.hero-cta').style.display = 'block';
   }
-]);
+}
 
-// Activate experiments
-await BeaconExperiments.activateAll();
-
-// Track conversions
 document.querySelector('#signup-button').addEventListener('click', function() {
-  BeaconExperiments.trackConversion('home_hero_test', 'signup_click');
+  BeaconOpenFeature.track('signup_click', {}, {
+    flagKey: 'home_hero_test',
+    flagSource: 'feature_flag',
+    conversionId: 'signup_click',
+    value: 1
+  });
 });
 ```

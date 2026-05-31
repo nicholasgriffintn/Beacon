@@ -1,7 +1,6 @@
 import type { D1Database, R2Bucket, KVNamespace } from "@cloudflare/workers-types";
 
 import type { AnalyticsFullEventData, Experiment, Variant } from "../types";
-import { parseExperimentAssignments } from "../utils/experiments.ts";
 import { parseJsonRecord } from "../utils/json.ts";
 import { getVariantAllocationRanges } from "../utils/variant-allocation.ts";
 
@@ -60,6 +59,7 @@ interface EventRecord {
 
 interface ExperimentRow {
   id: string;
+  flag_key?: string | null;
   name: string;
   description?: string | null;
   type: Experiment["type"];
@@ -91,11 +91,11 @@ function getProperty(properties: Record<string, unknown>, key: string): string |
 }
 
 function classifyEvent(eventName: string): EventRecord["event_type"] {
-  if (eventName === "experiment_exposure") {
+  if (eventName === "experiment_exposure" || eventName === "feature_flag_evaluation") {
     return "exposure";
   }
 
-  if (eventName === "experiment_conversion") {
+  if (eventName === "experiment_conversion" || eventName === "feature_flag_tracking") {
     return "conversion";
   }
 
@@ -142,7 +142,7 @@ export function getWilsonInterval(successes: number, total: number): { lower: nu
 
 export function createRecommendedAction(results: VariantResult[]): string {
   if (results.length === 0) {
-    return "No assignment data is available yet.";
+    return "No exposure data is available yet.";
   }
 
   const totalUsers = results.reduce((sum, result) => sum + result.metrics.total_users, 0);
@@ -159,6 +159,10 @@ export function createRecommendedAction(results: VariantResult[]): string {
   }
 
   return `Review ${best.variant_name}; it currently has the highest observed conversion rate.`;
+}
+
+export function getExperimentResultUserTotal(assignmentUsers: number, exposedUsers: number): number {
+  return Math.max(assignmentUsers, exposedUsers);
 }
 
 export class ExperimentResultsService {
@@ -233,10 +237,9 @@ export class ExperimentResultsService {
     const eventType = classifyEvent(eventName);
     const properties = event.properties || {};
     const explicitExperimentId = getProperty(properties, "experiment_id");
-    const explicitVariantId = getProperty(properties, "variant_id");
+    const explicitVariantId = getProperty(properties, "variant_id") || getProperty(properties, "variant");
     const explicitVariantName = getProperty(properties, "variant_name");
     const conversionId = getConversionId(properties, eventName, event.event_data.event_label);
-    const assignments = parseExperimentAssignments([], event.experiment_assignments);
 
     if (explicitExperimentId) {
       return [{
@@ -253,17 +256,7 @@ export class ExperimentResultsService {
       }];
     }
 
-    return assignments.map(assignment => ({
-      experiment_id: assignment.experiment_id,
-      variant_id: assignment.variant_id,
-      user_id: event.session_data.user_id,
-      event_name: eventName,
-      event_type: eventType,
-      conversion_id: eventType === "conversion" ? conversionId : undefined,
-      value: event.event_data.event_value,
-      properties,
-      occurred_at: event.timestamp,
-    }));
+    return [];
   }
 
   private async getExperiment(experimentId: string): Promise<Experiment | null> {
@@ -283,6 +276,7 @@ export class ExperimentResultsService {
 
     return {
       id: result.id,
+      flag_key: result.flag_key || result.id,
       name: result.name,
       description: result.description || undefined,
       type: result.type,
@@ -354,12 +348,12 @@ export class ExperimentResultsService {
               COALESCE(SUM(value), 0) as conversion_value
             FROM (
               SELECT
-                COALESCE(conversion_id, id) as conversion_key,
-                MIN(user_id) as user_id,
+                user_id || ':' || COALESCE(conversion_id, id) as conversion_key,
+                user_id,
                 MAX(value) as value
               FROM experiment_events
               WHERE experiment_id = ? AND variant_id = ? AND event_type = 'conversion'
-              GROUP BY COALESCE(conversion_id, id)
+              GROUP BY user_id, COALESCE(conversion_id, id)
             )
           `)
           .bind(experiment.id, variant.id)
@@ -370,7 +364,8 @@ export class ExperimentResultsService {
           }>()
         : null;
 
-      const totalUsers = Number(assignmentRow?.total_users || 0);
+      const exposedUsers = Number(exposureRow?.exposed_users || 0);
+      const totalUsers = getExperimentResultUserTotal(Number(assignmentRow?.total_users || 0), exposedUsers);
       const conversionCount = Number(conversionRow?.conversion_count || 0);
       const convertedUsers = Number(conversionRow?.converted_users || 0);
       const conversionValue = Number(conversionRow?.conversion_value || 0);
@@ -382,7 +377,7 @@ export class ExperimentResultsService {
         traffic_percentage: allocationPercentages.get(variant.id) || 0,
         metrics: {
           total_users: totalUsers,
-          exposed_users: Number(exposureRow?.exposed_users || 0),
+          exposed_users: exposedUsers,
           conversion_count: conversionCount,
           converted_users: convertedUsers,
           conversion_rate: conversionRate,

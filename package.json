@@ -25,6 +25,7 @@
 		"wrangler": "4.53.0"
 	},
 	"dependencies": {
+		"@sentry/cloudflare": "^10.55.0",
 		"hono": "4.10.7",
 		"react": "19.2.1",
 		"react-dom": "19.2.1",

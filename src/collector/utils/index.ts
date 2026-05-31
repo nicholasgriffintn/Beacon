@@ -8,6 +8,8 @@ export * from "./errors";
 export * from "./headers";
 export * from "./json";
 export * from "./middleware";
+export * from "./openfeature";
 export * from "./rate-limit";
+export * from "./sentry";
 export * from "./experiments";
 export * from "./variant-allocation";
