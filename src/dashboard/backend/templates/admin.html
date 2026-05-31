@@ -18,6 +18,10 @@
             <form method="post" action="/admin/publish/sites">
                 <button type="submit" class="btn">Publish Sites</button>
             </form>
+
+            <form method="post" action="/admin/publish/flags">
+                <button type="submit" class="btn">Publish Flags</button>
+            </form>
             
             <form method="post" action="/admin/publish/all">
                 <button type="submit" class="btn btn-success">Publish All</button>
@@ -33,7 +37,8 @@
                 <ul style="margin-left: 1rem; margin-top: 0.5rem;">
                     <li><strong>Experiments:</strong> Active experiments with variants</li>
                     <li><strong>Sites:</strong> Site configurations and domains</li>
-                    <li><strong>All:</strong> Both experiments and sites</li>
+                    <li><strong>Flags:</strong> Enabled feature flag definitions and targeting rules</li>
+                    <li><strong>All:</strong> Experiments, sites, and feature flags</li>
                 </ul>
             </div>
         </div>

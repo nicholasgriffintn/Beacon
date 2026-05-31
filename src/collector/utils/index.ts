@@ -6,4 +6,5 @@ export * from "./domains";
 export * from "./errors";
 export * from "./headers";
 export * from "./middleware";
+export * from "./rate-limit";
 export * from "./experiments";

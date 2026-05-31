@@ -9,6 +9,7 @@ import { sitesRouter } from "./routers/sites";
 import { adminRouter } from "./routers/admin";
 import { cdnRouter } from "./routers/cdn";
 import { flagsRouter } from "./routers/flags";
+import { healthRouter } from "./routers/health";
 
 const app = new Hono<{ Bindings: Env }>();
 
@@ -38,6 +39,7 @@ app.route("/api/sites", sitesRouter);
 app.route("/api/admin", adminRouter);
 app.route("/api/cdn", cdnRouter);
 app.route("/api/flags", flagsRouter);
+app.route("/api/health", healthRouter);
 
 app.get("*", async (c: Context) => {
   return c.json({

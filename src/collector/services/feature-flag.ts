@@ -16,11 +16,11 @@ import { InputValidationError } from "../utils/errors";
 
 export class FeatureFlagService {
   private db: D1Database;
-  private kv: KVNamespace;
+  private kv?: KVNamespace;
   private readonly CACHE_TTL = 5 * 60; // 5 minutes
   private readonly EVALUATION_CACHE_TTL = 60; // 1 minute for evaluations
 
-  constructor(db: D1Database, kv: KVNamespace) {
+  constructor(db: D1Database, kv?: KVNamespace) {
     this.db = db;
     this.kv = kv;
   }
@@ -39,6 +39,10 @@ export class FeatureFlagService {
   }
 
   private async getFromCache(flagKey: string): Promise<FeatureFlag | null> {
+    if (!this.kv) {
+      return null;
+    }
+
     try {
       const cached = await this.kv.get(this.getCacheKey(flagKey), "json");
       return cached as FeatureFlag | null;
@@ -48,6 +52,10 @@ export class FeatureFlagService {
   }
 
   private async setCache(flagKey: string, flag: FeatureFlag): Promise<void> {
+    if (!this.kv) {
+      return;
+    }
+
     try {
       await this.kv.put(this.getCacheKey(flagKey), JSON.stringify(flag), { 
         expirationTtl: this.CACHE_TTL 
@@ -58,6 +66,10 @@ export class FeatureFlagService {
   }
 
   private async invalidateCache(flagKey: string): Promise<void> {
+    if (!this.kv) {
+      return;
+    }
+
     try {
       await this.kv.delete(this.getCacheKey(flagKey));
     } catch {
@@ -320,14 +332,16 @@ export class FeatureFlagService {
     const { flag_key, user_id, attributes = {}, default_value } = request;
 
     const cacheKey = this.getEvaluationCacheKey(flag_key, user_id, attributes, default_value);
-    try {
-      const cached = await this.kv.get(cacheKey, "json");
-      if (cached) {
-        const cachedResponse = cached as FlagEvaluationResponse;
-        return { ...cachedResponse, cached: true };
+    if (this.kv) {
+      try {
+        const cached = await this.kv.get(cacheKey, "json");
+        if (cached) {
+          const cachedResponse = cached as FlagEvaluationResponse;
+          return { ...cachedResponse, cached: true };
+        }
+      } catch {
+        // Ignore cache errors
       }
-    } catch {
-      // Ignore cache errors
     }
 
     const flag = await this.getFlag(flag_key);
@@ -408,12 +422,14 @@ export class FeatureFlagService {
       }
     }
 
-    try {
-      await this.kv.put(cacheKey, JSON.stringify(response), { 
-        expirationTtl: this.EVALUATION_CACHE_TTL 
-      });
-    } catch {
-      // Ignore cache failures
+    if (this.kv) {
+      try {
+        await this.kv.put(cacheKey, JSON.stringify(response), { 
+          expirationTtl: this.EVALUATION_CACHE_TTL 
+        });
+      } catch {
+        // Ignore cache failures
+      }
     }
 
     await this.logEvaluation(flag, response, attributes);

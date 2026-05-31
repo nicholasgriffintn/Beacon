@@ -2,6 +2,7 @@ import type { D1Database, R2Bucket } from "@cloudflare/workers-types";
 
 import { SiteService } from "./site";
 import { ExperimentService } from "./experiment";
+import { FeatureFlagService } from "./feature-flag";
 
 interface PublishedDefinition {
   version: string;
@@ -44,7 +45,25 @@ interface PublishedSitesConfig {
   }>;
 }
 
-export type PublishedConfig = PublishedExperimentsConfig | PublishedSitesConfig;
+interface PublishedFlagsConfig {
+  version: string;
+  updated_at: string;
+  flags: Array<{
+    flag_key: string;
+    name: string;
+    description?: string;
+    site_id?: string;
+    enabled: boolean;
+    kill_switch: boolean;
+    default_value: unknown;
+    targeting_rules: unknown[];
+    rollout_percentage: number;
+    variations: unknown[];
+  }>;
+}
+
+export type CdnConfigType = 'experiments' | 'sites' | 'flags';
+export type PublishedConfig = PublishedExperimentsConfig | PublishedSitesConfig | PublishedFlagsConfig;
 
 export class CDNPublisher {
   private db: D1Database;
@@ -179,19 +198,54 @@ export class CDNPublisher {
     };
   }
 
+  async publishFlags(): Promise<PublishedDefinition> {
+    const flagService = new FeatureFlagService(this.db);
+    const flags = await flagService.listFlags();
+    const activeFlags = flags.filter(flag => flag.enabled && !flag.kill_switch);
+    
+    const exportData = {
+      version: this.generateVersion(),
+      updated_at: new Date().toISOString(),
+      flags: activeFlags.map(flag => ({
+        flag_key: flag.flag_key,
+        name: flag.name,
+        description: flag.description,
+        site_id: flag.site_id,
+        enabled: flag.enabled,
+        kill_switch: flag.kill_switch,
+        default_value: flag.default_value,
+        targeting_rules: flag.targeting_rules,
+        rollout_percentage: flag.rollout_percentage,
+        variations: flag.variations,
+      })),
+    };
+
+    const content = JSON.stringify(exportData, null, 2);
+    const { etag, version } = await this.putToR2('flags', content);
+
+    return {
+      version,
+      etag,
+      lastModified: new Date().toISOString(),
+      url: `${this.baseUrl}/config/v1/flags/${version}.json`,
+    };
+  }
+
   async publishAll(): Promise<{
     experiments: PublishedDefinition;
     sites: PublishedDefinition;
+    flags: PublishedDefinition;
   }> {
-    const [experiments, sites] = await Promise.all([
+    const [experiments, sites, flags] = await Promise.all([
       this.publishExperiments(),
       this.publishSites(),
+      this.publishFlags(),
     ]);
 
-    return { experiments, sites };
+    return { experiments, sites, flags };
   }
 
-  async getPublishedInfo(type: 'experiments' | 'sites'): Promise<PublishedDefinition | null> {
+  async getPublishedInfo(type: CdnConfigType): Promise<PublishedDefinition | null> {
     try {
       const latestObject = await this.r2.get(`config/v1/${type}/latest.json`);
       if (!latestObject) return null;
@@ -210,7 +264,7 @@ export class CDNPublisher {
     }
   }
 
-  async listVersions(type: 'experiments' | 'sites'): Promise<string[]> {
+  async listVersions(type: CdnConfigType): Promise<string[]> {
     try {
       const list = await this.r2.list({ prefix: `config/v1/${type}/` });
       return list.objects
@@ -224,7 +278,7 @@ export class CDNPublisher {
     }
   }
 
-  async getPublishedConfig(type: 'experiments' | 'sites', version = 'latest'): Promise<{
+  async getPublishedConfig(type: CdnConfigType, version = 'latest'): Promise<{
     content: PublishedConfig;
     etag?: string;
     version?: string;

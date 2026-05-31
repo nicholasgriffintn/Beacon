@@ -35,6 +35,21 @@ adminRouter.post("/publish/sites", async (c: Context) => {
   }
 });
 
+adminRouter.post("/publish/flags", async (c: Context) => {
+  try {
+    const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);
+    const result = await publisher.publishFlags();
+    
+    return c.json({
+      message: "Feature flags published successfully",
+      ...result
+    });
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Error publishing feature flags" }, 500);
+  }
+});
+
 adminRouter.post("/publish/all", async (c: Context) => {
   try {
     const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);

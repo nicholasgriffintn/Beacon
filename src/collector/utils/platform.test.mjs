@@ -4,6 +4,7 @@ import test from "node:test";
 import { isProtectedManagementPath } from "./auth.ts";
 import { getDeterministicBucket, isInPercentageBucket, stableStringify } from "./bucketing.ts";
 import { getHostnameFromUrl, isHostnameAllowed, isValidSiteDomain } from "./domains.ts";
+import { checkRateLimit, getRateLimitKey } from "./rate-limit.ts";
 
 test("protects management APIs while leaving client evaluation APIs public", () => {
   assert.equal(isProtectedManagementPath("GET", "/api/sites"), true);
@@ -32,4 +33,34 @@ test("uses stable bucketing inputs for deterministic rollout decisions", () => {
   assert.equal(getDeterministicBucket("flag:user"), getDeterministicBucket("flag:user"));
   assert.equal(isInPercentageBucket("flag:user", 100), true);
   assert.equal(isInPercentageBucket("flag:user", 0), false);
+});
+
+test("enforces fixed-window KV rate limits", async () => {
+  const store = new Map();
+  const kv = {
+    get: async (key) => store.get(key) ?? null,
+    put: async (key, value) => {
+      store.set(key, value);
+    },
+  };
+  const key = getRateLimitKey("events", "beacon-docs", "client", 0);
+
+  assert.deepEqual(await checkRateLimit(kv, key, 2), {
+    allowed: true,
+    limit: 2,
+    remaining: 1,
+    resetSeconds: 60,
+  });
+  assert.deepEqual(await checkRateLimit(kv, key, 2), {
+    allowed: true,
+    limit: 2,
+    remaining: 0,
+    resetSeconds: 60,
+  });
+  assert.deepEqual(await checkRateLimit(kv, key, 2), {
+    allowed: false,
+    limit: 2,
+    remaining: 0,
+    resetSeconds: 60,
+  });
 });

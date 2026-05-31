@@ -4,12 +4,18 @@
   "compatibility_flags": ["nodejs_compat"],
 	"compatibility_date": "2025-04-01",
 	"main": "src/collector/index.ts",
+  "preview_urls": false,
+  "workers_dev": false,
 	"observability": {
 		"enabled": true,
     "head_sampling_rate": 1,
 	},
   "placement": {
     "mode": "smart",
+  },
+  "vars": {
+    "RATE_LIMIT_EVENTS_PER_MINUTE": "600",
+    "RATE_LIMIT_EVALUATIONS_PER_MINUTE": "300"
   },
   "upload_source_maps": true,
 	"assets": {

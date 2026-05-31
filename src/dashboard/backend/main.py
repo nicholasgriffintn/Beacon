@@ -235,6 +235,16 @@ async def publish_sites():
     
     return RedirectResponse(url="/admin", status_code=303)
 
+@app.post("/admin/publish/flags")
+async def publish_flags():
+    async with httpx.AsyncClient() as client:
+        response = await client.post(f"{WORKER_BASE_URL}/api/admin/publish/flags", headers=worker_headers())
+    
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to publish feature flags")
+    
+    return RedirectResponse(url="/admin", status_code=303)
+
 @app.post("/admin/publish/all")
 async def publish_all():
     async with httpx.AsyncClient() as client:

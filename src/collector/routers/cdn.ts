@@ -1,15 +1,13 @@
 import { Hono, type Context } from "hono";
 
 import type { Env } from "../types";
-import { CDNPublisher, type PublishedConfig } from "../services/cdn-publisher";
+import { CDNPublisher, type CdnConfigType, type PublishedConfig } from "../services/cdn-publisher";
 
 const cdnRouter = new Hono<{ Bindings: Env }>();
 
-type CdnConfigType = 'experiments' | 'sites';
-
 function getConfigType(c: Context): CdnConfigType | null {
   const type = c.req.param("type");
-  return type === 'experiments' || type === 'sites' ? type : null;
+  return type === 'experiments' || type === 'sites' || type === 'flags' ? type : null;
 }
 
 function filterConfigForRequest(
@@ -17,7 +15,7 @@ function filterConfigForRequest(
   type: CdnConfigType,
   content: PublishedConfig,
 ) {
-  if (type !== 'experiments') {
+  if (type !== 'experiments' && type !== 'flags') {
     return { content };
   }
 
@@ -26,21 +24,32 @@ function filterConfigForRequest(
     return { error: "site_id is required" };
   }
 
-  return {
-    content: {
-      ...content,
-      experiments: 'experiments' in content
-        ? content.experiments.filter(experiment => !experiment.site_id || experiment.site_id === siteId)
-        : [],
-    },
-  };
+  if (type === 'experiments' && 'experiments' in content) {
+    return {
+      content: {
+        ...content,
+        experiments: content.experiments.filter(experiment => !experiment.site_id || experiment.site_id === siteId),
+      },
+    };
+  }
+
+  if (type === 'flags' && 'flags' in content) {
+    return {
+      content: {
+        ...content,
+        flags: content.flags.filter(flag => !flag.site_id || flag.site_id === siteId),
+      },
+    };
+  }
+
+  return { content };
 }
 
 cdnRouter.get("/:type/latest", async (c: Context) => {
   try {
     const type = getConfigType(c);
     if (!type) {
-      return c.json({ error: "Invalid type. Must be 'experiments' or 'sites'" }, 400);
+      return c.json({ error: "Invalid type. Must be 'experiments', 'sites', or 'flags'" }, 400);
     }
 
     const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);
@@ -106,11 +115,31 @@ cdnRouter.get("/sites/info", async (c: Context) => {
   }
 });
 
+cdnRouter.get("/flags/info", async (c: Context) => {
+  try {
+    const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);
+    const info = await publisher.getPublishedInfo('flags');
+    
+    if (!info) {
+      return c.json({ error: "No published flags found" }, 404);
+    }
+    
+    return c.json(info, 200, {
+      "Cache-Control": "public, max-age=60",
+      "ETag": info.etag ? `"${info.etag}"` : "",
+      "Last-Modified": info.lastModified,
+    });
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Error getting flags info" }, 500);
+  }
+});
+
 cdnRouter.get("/:type/versions", async (c: Context) => {
   try {
     const type = getConfigType(c);
     if (!type) {
-      return c.json({ error: "Invalid type. Must be 'experiments' or 'sites'" }, 400);
+      return c.json({ error: "Invalid type. Must be 'experiments', 'sites', or 'flags'" }, 400);
     }
 
     const publisher = new CDNPublisher(c.env.DB, c.env.CDN_BUCKET);
@@ -129,7 +158,7 @@ cdnRouter.get("/:type/:version", async (c: Context) => {
   try {
     const type = getConfigType(c);
     if (!type) {
-      return c.json({ error: "Invalid type. Must be 'experiments' or 'sites'" }, 400);
+      return c.json({ error: "Invalid type. Must be 'experiments', 'sites', or 'flags'" }, 400);
     }
 
     const version = c.req.param("version").replace(/\.json$/, "");

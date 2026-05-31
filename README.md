@@ -86,6 +86,21 @@ uvicorn main:app --reload --port 8000
 # You should now be able to access the dashboard at http://localhost:8000
 ```
 
+### 3. Run the Analytics Workspace
+
+```bash
+cd src/dashboard
+
+# Required by Superset in production
+export SUPERSET_SECRET_KEY="$(openssl rand -base64 42)"
+
+podman compose up
+
+# Dashboard: http://localhost:8081
+# Jupyter: http://localhost:8888
+# Superset: http://localhost:8088
+```
+
 ## API Documentation
 
 ### Core Endpoints
@@ -93,6 +108,9 @@ uvicorn main:app --reload --port 8000
 #### Events Collection
 - `POST /api/events/collect` - Single event collection
 - `POST /api/events/batch` - Batch event collection
+
+#### Health
+- `GET /api/health` - Check D1, KV, and R2 connectivity
 
 #### Site Management (`X-API-Key` required)
 - `GET /api/sites` - List all sites
@@ -106,6 +124,10 @@ uvicorn main:app --reload --port 8000
 - `GET /api/cdn/experiments/:version?site_id=:siteId` - Get a specific published experiment config version
 - `GET /api/cdn/experiments/info` - Get latest experiment publish metadata
 - `GET /api/cdn/experiments/versions` - List published experiment config versions
+- `GET /api/cdn/flags/latest?site_id=:siteId` - Get the published feature flag config for a browser client
+- `GET /api/cdn/flags/:version?site_id=:siteId` - Get a specific published feature flag config version
+- `GET /api/cdn/flags/info` - Get latest feature flag publish metadata
+- `GET /api/cdn/flags/versions` - List published feature flag config versions
 - `GET /api/cdn/sites/latest` - Get the published site config
 - `GET /api/cdn/sites/:version` - Get a specific published site config version
 - `GET /api/cdn/sites/info` - Get latest site publish metadata
@@ -134,6 +156,7 @@ uvicorn main:app --reload --port 8000
 
 #### CDN Publishing
 - `POST /api/admin/publish/experiments` - Publish experiments to CDN
+- `POST /api/admin/publish/flags` - Publish feature flags to CDN
 - `POST /api/admin/publish/sites` - Publish sites to CDN
 - `POST /api/admin/publish/all` - Publish all definitions
 
@@ -146,11 +169,26 @@ pnpm wrangler secret put ADMIN_API_KEY
 curl -H "X-API-Key: your-api-key" https://your-api.com/api/sites
 ```
 
+### Rate Limiting
+
+Public endpoints are rate-limited by client address and scope:
+
+- `RATE_LIMIT_EVENTS_PER_MINUTE` controls `/api/events/*` per site.
+- `RATE_LIMIT_EVALUATIONS_PER_MINUTE` controls experiment assignment and feature flag resolution per experiment or flag.
+
+Defaults are configured in `wrangler.jsonc` and can be changed per deployment.
+
 ## Set up on Cloudflare
 
 If you'd like to run this for yourself, you can do so by following the steps below.
 
-First you'll need to create a R2 bucket with the name `analytics-pipeline`.
+First create the R2 bucket used for CDN-published definitions.
+
+```bash
+npx wrangler@latest r2 bucket create beacon-cdn
+```
+
+Then create the R2 bucket used by the analytics pipeline.
 
 ```bash
 npx wrangler@latest r2 bucket create analytics-pipeline
@@ -162,7 +200,7 @@ Then you'll need to create the pipeline with this bucket as the source.
 npx wrangler@latest pipelines create analytics-pipeline --r2-bucket analytics-pipeline
 ```
 
-You'll also need to create a [D1 database](https://developers.cloudflare.com/d1/getting-started/create-a-database/) with the name `analytics-pipeline`.
+You'll also need to create a [D1 database](https://developers.cloudflare.com/d1/getting-started/create-a-database/) with the name `analytics-database`.
 
 ```bash
 npx wrangler@latest d1 create analytics-database
@@ -275,13 +313,14 @@ Beacon.init({
 // Initialize the experiments module
 BeaconExperiments.init({
   endpoint: 'https://<your-worker-url>',
+  siteId: 'YOUR_SITE_ID',
   debug: true
 });
 ```
 
 ### Defining Experiments
 
-Experiments are to be created and defined in the dashboard (coming soon). These definitions will be loaded by the script.
+Create experiment definitions in the management dashboard or through the experiment API, then publish them from the Admin page. The browser extension loads the published CDN config and applies the matching behaviour you define in code.
 
 To extend them with custom logic, you can use the `defineExperimentBehaviors` function.
 
@@ -366,6 +405,7 @@ Beacon.init({
 
 BeaconExperiments.init({
   endpoint: 'https://<your-worker-url>',
+  siteId: 'YOUR_SITE_ID',
   debug: true
 });
 
