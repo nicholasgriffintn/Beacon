@@ -3,29 +3,15 @@
 This is a comprehensive analytics and experimentation platform built on Cloudflare's edge infrastructure, designed to provide enterprise-grade A/B testing, feature flagging, and analytics capabilities while remaining cost-effective and fully open source.
 
 **Key Features:**
-- 🚀 **Edge-Native**: Runs entirely on Cloudflare Workers with global edge deployment
-- 🧪 **Full A/B Testing**: Complete experiment lifecycle with statistical analysis
-- 🏁 **Feature Flags**: Advanced targeting rules, rollout controls, and kill switches
-- 📊 **Real-time Analytics**: Event tracking with Iceberg data lake integration
-- 🛡️ **Site Validation**: Domain-based security with request validation
-- 📈 **Visual Analytics**: Apache Superset integration for dashboards and reporting
-- 💰 **Cost Efficient**: Serverless architecture with intelligent caching
 
-> [!NOTE]
-> Please note that this project is still in active development so there are a few features that are not yet fully working or fully imagined.
-
-## 📝 Still in development
-- [ ] **A management dashboard**: A dashboard to manage experiments, feature flags, and sites.
-- [ ] **Complete integration with Superset**: Superset is a tool i want to investigate for visualisations alongside 
-
-## 🚀 Potential Future Milestones
-- [ ] **Real-time Analytics Dashboard**: Live event streaming and real-time metrics
-- [ ] **Advanced Targeting**: Geo-location, device, and behavioral targeting rules
-- [ ] **Multi-Armed Bandits**: Dynamic traffic allocation based on performance
-- [ ] **Segment Analysis**: Cohort analysis and user segmentation capabilities
-- [ ] **API Rate Limiting**: Per-site rate limiting and abuse prevention
-- [ ] **Webhook Integration**: Event streaming to external systems
-- [ ] **Data Export**: Bulk data export and ETL pipeline integration
+- **Edge-native collection**: Runs on Cloudflare Workers with D1, KV, R2, and Pipelines.
+- **A/B testing**: Supports experiment lifecycle, sticky assignment, CDN-published configs, and exposure/conversion tracking.
+- **Feature flags**: Supports targeting rules, rollout controls, kill switches, evaluation logging, and CDN-published flag definitions.
+- **Site validation**: Enforces registered domains before accepting analytics events.
+- **Abuse controls**: Applies per-site/client rate limits to event ingestion and public evaluation endpoints.
+- **Management dashboard**: Provides site, experiment, feature flag, result, and CDN publishing controls through the FastAPI admin dashboard.
+- **Analytics workspace**: Ships a notebook environment and Apache Superset service for analysis and reporting.
+- **Operational readiness**: Exposes health checks, static validation scripts, minified client bundles, and deployable Cloudflare configuration.
 
 ## Quick Start
 
@@ -48,6 +34,9 @@ pnpm install
 
 # Configure the management API key as a Worker secret
 pnpm wrangler secret put ADMIN_API_KEY
+
+# Optional: tune public endpoint rate limits
+# RATE_LIMIT_EVENTS_PER_MINUTE and RATE_LIMIT_EVALUATIONS_PER_MINUTE live in wrangler.jsonc
 
 # Deploy database schema
 pnpm run db:apply
