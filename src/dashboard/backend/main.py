@@ -272,5 +272,19 @@ async def experiment_results(request: Request, experiment_id: str):
         "request": request,
         "experiment": experiment,
         "results": results,
-        "experiment_id": experiment_id
+        "experiment_id": experiment_id,
+        "refreshed": request.query_params.get("refreshed") == "1"
     })
+
+@app.post("/experiments/{experiment_id}/results/refresh")
+async def refresh_experiment_results(experiment_id: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{WORKER_BASE_URL}/api/experiments/{experiment_id}/results/refresh",
+            headers=worker_headers(),
+        )
+
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail="Failed to refresh experiment results")
+
+    return RedirectResponse(url=f"/experiments/{experiment_id}/results?refreshed=1", status_code=303)

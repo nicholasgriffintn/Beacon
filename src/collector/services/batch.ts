@@ -2,7 +2,8 @@ import type { Context } from "hono";
 
 import type { BatchEventData } from "../types";
 import { collectCommonAnalyticsData } from "../lib";
-import { parseExperimentAssignments, returnCompactedAssignments } from "../utils";
+import { parseExperimentAssignments, returnCompactedAssignments, toEventNumber } from "../utils";
+import { ExperimentResultsService } from "./experiment-results";
 
 const MAX_BATCH_EVENTS = 100;
 
@@ -68,7 +69,7 @@ export async function handleBatch(c: Context, batchData: BatchEventData) {
           event_name: event.event_name || 'unknown_event',
           event_category: event.event_category || 'general',
           event_label: event.event_label || event.event_name || 'event',
-          event_value: event.event_value || 0,
+          event_value: toEventNumber(event.event_value),
           non_interaction: event.non_interaction || false,
         },
         experiment_assignments: compactedAssignments,
@@ -85,7 +86,7 @@ export async function handleBatch(c: Context, batchData: BatchEventData) {
         event_name: event.event_name || 'unknown_event',
         event_category: event.event_category || 'general',
         event_label: event.event_label || event.event_name || 'unknown_event',
-        event_value: event.event_value || 0,
+        event_value: toEventNumber(event.event_value),
       },
       experiment_assignments: compactedAssignments,
       raw_event: event,
@@ -104,6 +105,13 @@ export async function handleBatch(c: Context, batchData: BatchEventData) {
       status: 502,
       nextLastModifiedDate
     };
+  }
+
+  try {
+    const resultsService = new ExperimentResultsService(c.env.DB, c.env.CDN_BUCKET, c.env.CACHE_KV);
+    await Promise.all(processedEvents.map(event => resultsService.recordExperimentEvents(event)));
+  } catch (error) {
+    console.error("Error recording experiment event mirror", error);
   }
 
   return {

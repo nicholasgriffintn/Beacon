@@ -2,6 +2,7 @@ import { Hono, type Context } from "hono";
 
 import type { Env, ExperimentCreate, ExperimentUpdate, UserContext } from "../types";
 import { ExperimentService } from "../services/experiment";
+import { ExperimentResultsService } from "../services/experiment-results";
 import { InputValidationError } from "../utils/errors";
 
 const experimentsRouter = new Hono<{ Bindings: Env }>();
@@ -105,6 +106,26 @@ experimentsRouter.post("/:id/assign", async (c: Context) => {
   } catch (error) {
     console.error(error);
     return c.json({ error: "Error assigning variant" }, 500);
+  }
+});
+
+experimentsRouter.post("/:id/results/refresh", async (c: Context) => {
+  try {
+    const experimentId = c.req.param("id");
+    const resultsService = new ExperimentResultsService(c.env.DB, c.env.CDN_BUCKET, c.env.CACHE_KV);
+    const results = await resultsService.generateResults(experimentId);
+
+    if (!results) {
+      return c.json({ error: "Experiment not found" }, 404);
+    }
+
+    return c.json({
+      message: "Experiment results refreshed",
+      results,
+    });
+  } catch (error) {
+    console.error(error);
+    return c.json({ error: "Error refreshing experiment results" }, 500);
   }
 });
 

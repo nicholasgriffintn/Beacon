@@ -4,12 +4,14 @@ import test from "node:test";
 import { isProtectedManagementPath } from "./auth.ts";
 import { getDeterministicBucket, isInPercentageBucket, stableStringify } from "./bucketing.ts";
 import { getHostnameFromUrl, isHostnameAllowed, isValidSiteDomain } from "./domains.ts";
+import { parseJsonRecord } from "./json.ts";
 import { checkRateLimit, getRateLimitKey } from "./rate-limit.ts";
 
 test("protects management APIs while leaving client evaluation APIs public", () => {
   assert.equal(isProtectedManagementPath("GET", "/api/sites"), true);
   assert.equal(isProtectedManagementPath("POST", "/api/admin/publish/all"), true);
   assert.equal(isProtectedManagementPath("GET", "/api/experiments/exp_1/results"), true);
+  assert.equal(isProtectedManagementPath("POST", "/api/experiments/exp_1/results/refresh"), true);
   assert.equal(isProtectedManagementPath("GET", "/api/experiments/client"), true);
   assert.equal(isProtectedManagementPath("POST", "/api/experiments/exp_1/assign"), false);
   assert.equal(isProtectedManagementPath("GET", "/api/cdn/experiments/latest"), false);
@@ -33,6 +35,12 @@ test("uses stable bucketing inputs for deterministic rollout decisions", () => {
   assert.equal(getDeterministicBucket("flag:user"), getDeterministicBucket("flag:user"));
   assert.equal(isInPercentageBucket("flag:user", 100), true);
   assert.equal(isInPercentageBucket("flag:user", 0), false);
+});
+
+test("parses JSON object columns defensively", () => {
+  assert.deepEqual(parseJsonRecord('{"enabled":true}'), { enabled: true });
+  assert.deepEqual(parseJsonRecord("[1,2,3]"), {});
+  assert.deepEqual(parseJsonRecord("not json"), {});
 });
 
 test("enforces fixed-window KV rate limits", async () => {

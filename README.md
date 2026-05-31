@@ -131,6 +131,7 @@ podman compose up
 
 #### Experiment Results (`X-API-Key` required)
 - `GET /api/experiments/:id/results` - Get latest results
+- `POST /api/experiments/:id/results/refresh` - Generate and publish the latest results from D1 assignment and experiment event data
 - `GET /api/experiments/:id/results/history` - Get results history
 - `GET /api/experiments/:id/results/:timestamp` - Get specific result
 

@@ -3,6 +3,7 @@ import type { Context } from "hono";
 import { collectCommonAnalyticsData } from "../lib";
 import type { AnalyticsFullEventData, EventData } from "../types";
 import { parseExperimentAssignments, returnCompactedAssignments } from "../utils";
+import { ExperimentResultsService } from "./experiment-results";
 
 export async function handleEvent(c: Context, eventData: EventData) {
   const isValidEventData = eventData.s && eventData.event_name;
@@ -37,6 +38,13 @@ export async function handleEvent(c: Context, eventData: EventData) {
       status: 502,
       nextLastModifiedDate
     };
+  }
+
+  try {
+    await new ExperimentResultsService(c.env.DB, c.env.CDN_BUCKET, c.env.CACHE_KV)
+      .recordExperimentEvents(fullEventData);
+  } catch (error) {
+    console.error("Error recording experiment event mirror", error);
   }
 
   return {

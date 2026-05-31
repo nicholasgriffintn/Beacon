@@ -9,6 +9,14 @@
         {% endif %}
     </div>
     <div class="card-body">
+        <form method="post" action="/experiments/{{ experiment_id }}/results/refresh" style="margin-bottom: 1rem;">
+            <button type="submit" class="btn">Refresh Results</button>
+        </form>
+
+        {% if refreshed %}
+        <p class="status-badge status-active" style="display: inline-block; margin-bottom: 1rem;">Results refreshed</p>
+        {% endif %}
+
         {% if results %}
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
             {% for variant in results.variants %}
@@ -59,7 +67,7 @@
         <p style="text-align: center; color: #666; padding: 2rem;">
             No results available for this experiment yet.
             <br><br>
-            Results are generated nightly for experiments with sufficient data.
+            Use Refresh Results to generate the latest assignment and conversion summary.
         </p>
         {% endif %}
         
