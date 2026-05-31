@@ -664,9 +664,7 @@ h3 {
 	}
 
 	.site-nav__links {
-		overflow-x: auto;
-		padding-bottom: 0.2rem;
-		width: 100%;
+		display: none;
 	}
 
 	h1 {

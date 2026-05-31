@@ -141,7 +141,6 @@ export default function App() {
               </div>
               <div className="preview-grid">
                 <aside className="preview-sidebar">
-                  <strong>Beacon</strong>
                   <span className="preview-sidebar__item active">Analytics</span>
                   <span className="preview-sidebar__item">Events</span>
                   <span className="preview-sidebar__item">Results</span>
