@@ -1,6 +1,7 @@
 export * from "./analytics";
 export * from "./auth";
 export * from "./bucketing";
+export * from "./cdn-publish";
 export * from "./dates";
 export * from "./domains";
 export * from "./errors";

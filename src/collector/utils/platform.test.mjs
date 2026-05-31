@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { isProtectedManagementPath } from "./auth.ts";
 import { getDeterministicBucket, isInPercentageBucket, stableStringify } from "./bucketing.ts";
+import { getCdnPublishHeaders, getCdnPublishScopesForMutation } from "./cdn-publish.ts";
 import { getHostnameFromUrl, isHostnameAllowed, isValidSiteDomain } from "./domains.ts";
 import { parseJsonRecord } from "./json.ts";
 import { checkRateLimit, getRateLimitKey } from "./rate-limit.ts";
@@ -18,6 +19,24 @@ test("protects management APIs while leaving client evaluation APIs public", () 
   assert.equal(isProtectedManagementPath("GET", "/api/cdn/experiments/latest"), false);
   assert.equal(isProtectedManagementPath("POST", "/api/flags/checkout/resolve"), false);
   assert.equal(isProtectedManagementPath("POST", "/api/flags/resolve"), false);
+});
+
+test("selects CDN publish scopes for management mutations", () => {
+  assert.deepEqual(getCdnPublishScopesForMutation("site"), ["sites", "experiments", "flags"]);
+  assert.deepEqual(getCdnPublishScopesForMutation("experiment"), ["experiments"]);
+  assert.deepEqual(getCdnPublishScopesForMutation("flag"), ["flags"]);
+
+  assert.deepEqual(getCdnPublishHeaders({
+    flags: {
+      version: "123",
+      etag: "abc",
+      lastModified: "2026-05-31T00:00:00.000Z",
+      url: "https://cdn.example/config/v1/flags/123.json",
+    },
+  }), {
+    "X-CDN-Published": "flags",
+    "X-CDN-flags-Version": "123",
+  });
 });
 
 test("validates and matches configured site domains", () => {

@@ -2,6 +2,8 @@ import { Hono, type Context } from "hono";
 
 import type { Env, SiteCreate, SiteUpdate } from "../types";
 import { SiteService } from "../services/site";
+import { publishCdnForMutation } from "../services/cdn-sync";
+import { getCdnPublishHeaders, type CdnPublishResult } from "../utils/cdn-publish";
 import { InputValidationError } from "../utils/errors";
 
 const sitesRouter = new Hono<{ Bindings: Env }>();
@@ -32,8 +34,15 @@ sitesRouter.post("/", async (c: Context) => {
 
     const siteService = new SiteService(c.env.DB, c.env.CACHE_KV);
     const site = await siteService.createSite(siteData);
+    let cdnPublish: CdnPublishResult;
+    try {
+      cdnPublish = await publishCdnForMutation(c.env.DB, c.env.CDN_BUCKET, "site");
+    } catch (publishError) {
+      console.error("CDN publish failed after site create", publishError);
+      return c.json({ error: "Site created but CDN publish failed", site }, 502);
+    }
     
-    return c.json(site, 201);
+    return c.json(site, 201, getCdnPublishHeaders(cdnPublish));
   } catch (error) {
     console.error(error);
     if (error instanceof InputValidationError) {
@@ -74,8 +83,16 @@ sitesRouter.put("/:siteId", async (c: Context) => {
     if (!site) {
       return c.json({ error: "Site not found" }, 404);
     }
+
+    let cdnPublish: CdnPublishResult;
+    try {
+      cdnPublish = await publishCdnForMutation(c.env.DB, c.env.CDN_BUCKET, "site");
+    } catch (publishError) {
+      console.error("CDN publish failed after site update", publishError);
+      return c.json({ error: "Site updated but CDN publish failed", site }, 502);
+    }
   
-    return c.json(site);
+    return c.json(site, 200, getCdnPublishHeaders(cdnPublish));
   } catch (error) {
     console.error(error);
     if (error instanceof InputValidationError) {
@@ -93,8 +110,20 @@ sitesRouter.delete("/:siteId", async (c: Context) => {
     if (!deleted) {
       return c.json({ error: "Site not found" }, 404);
     }
+
+    let cdnPublish: CdnPublishResult;
+    try {
+      cdnPublish = await publishCdnForMutation(c.env.DB, c.env.CDN_BUCKET, "site");
+    } catch (publishError) {
+      console.error("CDN publish failed after site delete", publishError);
+      return c.json({ error: "Site deleted but CDN publish failed" }, 502);
+    }
     
-    return c.json({ message: "Site deleted successfully" });
+    return c.json(
+      { message: "Site deleted successfully" },
+      200,
+      getCdnPublishHeaders(cdnPublish),
+    );
   } catch (e) {
     console.error(e);
     return c.json({ error: "Error deleting site" }, 500);

@@ -8,10 +8,10 @@ import type {
   Variant,
   VariantAssignment
 } from '../types';
-import { getDeterministicBucket } from '../utils/bucketing';
-import { InputValidationError } from '../utils/errors';
-import { parseJsonRecord } from '../utils/json';
-import { selectVariantForUser } from '../utils/variant-allocation';
+import { getDeterministicBucket } from '../utils/bucketing.ts';
+import { InputValidationError } from '../utils/errors.ts';
+import { parseJsonRecord } from '../utils/json.ts';
+import { selectVariantForUser } from '../utils/variant-allocation.ts';
 
 interface ExperimentRow {
   id: string;
@@ -107,11 +107,9 @@ export class ExperimentService {
     this.validateExperimentCreate(experimentData);
 
     const id = crypto.randomUUID();
-    
-    await this.db.prepare('BEGIN TRANSACTION').run();
-    
-    try {
-      await this.db.prepare(
+
+    const statements = [
+      this.db.prepare(
         `INSERT INTO experiments (
           id, name, description, type, status, site_id,
           targeting_rules, traffic_allocation,
@@ -128,10 +126,9 @@ export class ExperimentService {
         experimentData.traffic_allocation ?? 100,
         experimentData.start_time || null,
         experimentData.end_time || null
-      ).run();
-
-      for (const variant of experimentData.variants) {
-        await this.db.prepare(
+      ),
+      ...experimentData.variants.map(variant => {
+        return this.db.prepare(
           `INSERT INTO variants (
             id, experiment_id, name, type,
             config, traffic_percentage
@@ -143,20 +140,17 @@ export class ExperimentService {
           variant.type,
           JSON.stringify(variant.config),
           variant.traffic_percentage
-        ).run();
-      }
+        );
+      }),
+    ];
 
-      await this.db.prepare('COMMIT').run();
-      
-      const createdExperiment = await this.getExperiment(id);
-      if (!createdExperiment) {
-        throw new Error('Failed to retrieve created experiment');
-      }
-      return createdExperiment;
-    } catch (error) {
-      await this.db.prepare('ROLLBACK').run();
-      throw error;
+    await this.db.batch(statements);
+
+    const createdExperiment = await this.getExperiment(id);
+    if (!createdExperiment) {
+      throw new Error('Failed to retrieve created experiment');
     }
+    return createdExperiment;
   }
 
   async updateExperiment(id: string, update: ExperimentUpdate): Promise<Experiment | null> {

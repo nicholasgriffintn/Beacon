@@ -3,6 +3,8 @@ import { Hono, type Context } from "hono";
 import type { Env, ExperimentCreate, ExperimentUpdate, UserContext } from "../types";
 import { ExperimentService } from "../services/experiment";
 import { ExperimentResultsService } from "../services/experiment-results";
+import { publishCdnForMutation } from "../services/cdn-sync";
+import { getCdnPublishHeaders, type CdnPublishResult } from "../utils/cdn-publish";
 import { InputValidationError } from "../utils/errors";
 
 const experimentsRouter = new Hono<{ Bindings: Env }>();
@@ -29,8 +31,15 @@ experimentsRouter.post("/", async (c: Context) => {
 
     const experimentService = new ExperimentService(c.env.DB);
     const experiment = await experimentService.createExperiment(experimentData);
+    let cdnPublish: CdnPublishResult;
+    try {
+      cdnPublish = await publishCdnForMutation(c.env.DB, c.env.CDN_BUCKET, "experiment");
+    } catch (publishError) {
+      console.error("CDN publish failed after experiment create", publishError);
+      return c.json({ error: "Experiment created but CDN publish failed", experiment }, 502);
+    }
     
-    return c.json(experiment, 201);
+    return c.json(experiment, 201, getCdnPublishHeaders(cdnPublish));
   } catch (error) {
     console.error(error);
     if (error instanceof InputValidationError) {
@@ -71,8 +80,16 @@ experimentsRouter.put("/:id", async (c: Context) => {
     if (!experiment) {
       return c.json({ error: "Experiment not found" }, 404);
     }
+
+    let cdnPublish: CdnPublishResult;
+    try {
+      cdnPublish = await publishCdnForMutation(c.env.DB, c.env.CDN_BUCKET, "experiment");
+    } catch (publishError) {
+      console.error("CDN publish failed after experiment update", publishError);
+      return c.json({ error: "Experiment updated but CDN publish failed", experiment }, 502);
+    }
   
-    return c.json(experiment);
+    return c.json(experiment, 200, getCdnPublishHeaders(cdnPublish));
   } catch (error) {
     console.error(error);
     if (error instanceof InputValidationError) {

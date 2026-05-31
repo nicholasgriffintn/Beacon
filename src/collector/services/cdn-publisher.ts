@@ -4,7 +4,7 @@ import { SiteService } from "./site";
 import { ExperimentService } from "./experiment";
 import { FeatureFlagService } from "./feature-flag";
 
-interface PublishedDefinition {
+export interface PublishedDefinition {
   version: string;
   etag: string;
   lastModified: string;
@@ -64,6 +64,10 @@ interface PublishedFlagsConfig {
 
 export type CdnConfigType = 'experiments' | 'sites' | 'flags';
 export type PublishedConfig = PublishedExperimentsConfig | PublishedSitesConfig | PublishedFlagsConfig;
+
+export function isGlobalOrActiveSite(siteId: string | undefined, activeSiteIds: Set<string>): boolean {
+  return !siteId || activeSiteIds.has(siteId);
+}
 
 export class CDNPublisher {
   private db: D1Database;
@@ -134,9 +138,20 @@ export class CDNPublisher {
 
   async publishExperiments(): Promise<PublishedDefinition> {
     const experimentService = new ExperimentService(this.db);
-    const experiments = await experimentService.listExperiments();
+    const siteService = new SiteService(this.db);
+    const [experiments, sites] = await Promise.all([
+      experimentService.listExperiments(),
+      siteService.listSites(),
+    ]);
+    const activeSiteIds = new Set(
+      sites
+        .filter(site => site.status === 'active')
+        .map(site => site.site_id),
+    );
     
-    const activeExperiments = experiments.filter(exp => exp.status === 'running');
+    const activeExperiments = experiments.filter(exp => {
+      return exp.status === 'running' && isGlobalOrActiveSite(exp.site_id, activeSiteIds);
+    });
     
     const exportData = {
       version: this.generateVersion(),
@@ -200,8 +215,19 @@ export class CDNPublisher {
 
   async publishFlags(): Promise<PublishedDefinition> {
     const flagService = new FeatureFlagService(this.db);
-    const flags = await flagService.listFlags();
-    const activeFlags = flags.filter(flag => flag.enabled && !flag.kill_switch);
+    const siteService = new SiteService(this.db);
+    const [flags, sites] = await Promise.all([
+      flagService.listFlags(),
+      siteService.listSites(),
+    ]);
+    const activeSiteIds = new Set(
+      sites
+        .filter(site => site.status === 'active')
+        .map(site => site.site_id),
+    );
+    const activeFlags = flags.filter(flag => {
+      return flag.enabled && !flag.kill_switch && isGlobalOrActiveSite(flag.site_id, activeSiteIds);
+    });
     
     const exportData = {
       version: this.generateVersion(),
