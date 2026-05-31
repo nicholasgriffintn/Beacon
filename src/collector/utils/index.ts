@@ -9,3 +9,4 @@ export * from "./json";
 export * from "./middleware";
 export * from "./rate-limit";
 export * from "./experiments";
+export * from "./variant-allocation";

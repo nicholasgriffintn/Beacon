@@ -10,86 +10,97 @@ import type {
 } from '../types';
 import { getDeterministicBucket } from '../utils/bucketing';
 import { InputValidationError } from '../utils/errors';
+import { parseJsonRecord } from '../utils/json';
+import { selectVariantForUser } from '../utils/variant-allocation';
+
+interface ExperimentRow {
+  id: string;
+  name: string;
+  description?: string | null;
+  type: Experiment["type"];
+  status: Experiment["status"];
+  site_id?: string | null;
+  targeting_rules: unknown;
+  traffic_allocation: number;
+  start_time?: string | null;
+  end_time?: string | null;
+  created_at: string;
+  updated_at: string;
+  started_at?: string | null;
+  ended_at?: string | null;
+  stopped_reason?: string | null;
+}
+
+interface VariantRow {
+  id: string;
+  experiment_id: string;
+  name: string;
+  type: Variant["type"];
+  config: unknown;
+  traffic_percentage: number;
+}
 
 export class ExperimentService {
-  constructor(private readonly db: D1Database) {}
+  private readonly db: D1Database;
+
+  constructor(db: D1Database) {
+    this.db = db;
+  }
 
   async getExperiment(id: string): Promise<Experiment | null> {
-    const stmt = this.db.prepare(
-      `SELECT e.*, json_group_array(
-        json_object(
-          'id', v.id,
-          'experiment_id', v.experiment_id,
-          'name', v.name,
-          'type', v.type,
-          'config', v.config,
-          'traffic_percentage', v.traffic_percentage
-        )
-      ) as variants
-      FROM experiments e
-      LEFT JOIN variants v ON e.id = v.experiment_id
-      WHERE e.id = ?
-      GROUP BY e.id`
-    );
-    
-    const result = await stmt.bind(id).first();
+    const result = await this.db
+      .prepare("SELECT * FROM experiments WHERE id = ?")
+      .bind(id)
+      .first<ExperimentRow>();
+
     if (!result) return null;
 
-    let variants: Variant[] = [];
-    try {
-      const parsedVariants = JSON.parse(result.variants as string);
-      variants = parsedVariants[0]?.id ? parsedVariants.map(this.normalizeVariant) : [];
-    } catch (error) {
-      console.error('Error parsing variants:', error);
-    }
-
-    return {
-      ...result,
-      variants,
-      targeting_rules: typeof result.targeting_rules === 'string' 
-        ? JSON.parse(result.targeting_rules) 
-        : result.targeting_rules || {}
-    } as Experiment;
+    return this.normaliseExperiment(result, await this.listVariants(id));
   }
 
   async listExperiments(): Promise<Experiment[]> {
-    const stmt = this.db.prepare(
-      `SELECT e.*, json_group_array(
-        json_object(
-          'id', v.id,
-          'experiment_id', v.experiment_id,
-          'name', v.name,
-          'type', v.type,
-          'config', v.config,
-          'traffic_percentage', v.traffic_percentage
-        )
-      ) as variants
-      FROM experiments e
-      LEFT JOIN variants v ON e.id = v.experiment_id
-      GROUP BY e.id`
-    );
-    
-    const results = await stmt.all();
+    const results = await this.db
+      .prepare("SELECT * FROM experiments ORDER BY created_at DESC, name")
+      .all<ExperimentRow>();
 
-    if (!results.results) return [];
+    return Promise.all(results.results.map(async (result) => {
+      return this.normaliseExperiment(result, await this.listVariants(result.id));
+    }));
+  }
 
-    return results.results.map(result => {
-      let variants: Variant[] = [];
-      try {
-        const parsedVariants = JSON.parse(result.variants as string);
-        variants = parsedVariants[0]?.id ? parsedVariants.map(this.normalizeVariant) : [];
-      } catch (error) {
-        console.error('Error parsing variants:', error);
-      }
+  private async listVariants(experimentId: string): Promise<Variant[]> {
+    const variants = await this.db
+      .prepare(`
+        SELECT id, experiment_id, name, type, config, traffic_percentage
+        FROM variants
+        WHERE experiment_id = ?
+        ORDER BY type, name, id
+      `)
+      .bind(experimentId)
+      .all<VariantRow>();
 
-      return {
-        ...result,
-        variants,
-        targeting_rules: typeof result.targeting_rules === 'string' 
-          ? JSON.parse(result.targeting_rules) 
-          : result.targeting_rules || {}
-      } as Experiment;
-    });
+    return variants.results.map(variant => this.normalizeVariant(variant));
+  }
+
+  private normaliseExperiment(row: ExperimentRow, variants: Variant[]): Experiment {
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description || undefined,
+      type: row.type,
+      status: row.status,
+      site_id: row.site_id || undefined,
+      targeting_rules: parseJsonRecord(row.targeting_rules),
+      traffic_allocation: Number(row.traffic_allocation),
+      start_time: row.start_time || undefined,
+      end_time: row.end_time || undefined,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      started_at: row.started_at || undefined,
+      ended_at: row.ended_at || undefined,
+      stopped_reason: row.stopped_reason || undefined,
+      variants,
+    };
   }
 
   async createExperiment(experimentData: ExperimentCreate): Promise<Experiment> {
@@ -273,25 +284,17 @@ export class ExperimentService {
       return null;
     }
 
-    const variantBucket = getDeterministicBucket(`${experiment.id}:${userContext.user_id}:variant`);
-    
-    let cumulative = 0;
-    for (const variant of experiment.variants) {
-      cumulative += variant.traffic_percentage;
-      if (variantBucket < cumulative) {
-        return variant;
-      }
-    }
-    
-    return null;
+    return selectVariantForUser(experiment.id, experiment.variants, userContext);
   }
 
-  private normalizeVariant(variant: Variant): Variant {
+  private normalizeVariant(variant: VariantRow): Variant {
     return {
-      ...variant,
-      config: typeof variant.config === "string"
-        ? JSON.parse(variant.config)
-        : variant.config || {},
+      id: variant.id,
+      experiment_id: variant.experiment_id,
+      name: variant.name,
+      type: variant.type,
+      config: parseJsonRecord(variant.config),
+      traffic_percentage: Number(variant.traffic_percentage),
     };
   }
 

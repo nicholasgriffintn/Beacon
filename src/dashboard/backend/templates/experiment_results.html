@@ -1,6 +1,113 @@
 {% extends "base.html" %}
 
 {% block content %}
+<style>
+    .results-toolbar {
+        align-items: flex-start;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: space-between;
+        margin-bottom: 1.5rem;
+    }
+
+    .results-toolbar form {
+        flex-direction: row;
+        max-width: none;
+    }
+
+    .results-grid,
+    .charts-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        margin-bottom: 2rem;
+    }
+
+    .result-panel {
+        background: #fff;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+        overflow: hidden;
+    }
+
+    .result-panel-header {
+        align-items: center;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        gap: 0.75rem;
+        justify-content: space-between;
+        padding: 1rem;
+    }
+
+    .result-panel-body {
+        padding: 1rem;
+    }
+
+    .metric-list {
+        display: grid;
+        gap: 0.35rem;
+    }
+
+    .chart-row {
+        display: grid;
+        gap: 0.35rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .chart-row:last-child {
+        margin-bottom: 0;
+    }
+
+    .chart-label {
+        align-items: baseline;
+        display: flex;
+        gap: 0.75rem;
+        justify-content: space-between;
+    }
+
+    .chart-label strong {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .chart-value {
+        color: #4b5563;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
+    .bar-track {
+        background: #eef2f7;
+        border-radius: 999px;
+        height: 0.65rem;
+        overflow: hidden;
+        position: relative;
+    }
+
+    .bar-fill {
+        background: #2563eb;
+        border-radius: inherit;
+        display: block;
+        height: 100%;
+    }
+
+    .bar-marker {
+        background: #111827;
+        border-radius: 999px;
+        height: 100%;
+        position: absolute;
+        top: 0;
+        width: 2px;
+    }
+
+    .bar-note {
+        color: #6b7280;
+        font-size: 0.85rem;
+    }
+</style>
+
 <div class="card">
     <div class="card-header">
         <h2>Experiment Results</h2>
@@ -9,28 +116,86 @@
         {% endif %}
     </div>
     <div class="card-body">
-        <form method="post" action="/experiments/{{ experiment_id }}/results/refresh" style="margin-bottom: 1rem;">
-            <button type="submit" class="btn">Refresh Results</button>
-        </form>
+        <div class="results-toolbar">
+            <form method="post" action="/experiments/{{ experiment_id }}/results/refresh">
+                <button type="submit" class="btn">Refresh Results</button>
+            </form>
 
-        {% if refreshed %}
-        <p class="status-badge status-active" style="display: inline-block; margin-bottom: 1rem;">Results refreshed</p>
-        {% endif %}
+            {% if refreshed %}
+            <p class="status-badge status-active">Results refreshed</p>
+            {% endif %}
+
+            {% if refresh_error %}
+            <p class="status-badge status-inactive">{{ refresh_error }}</p>
+            {% endif %}
+        </div>
 
         {% if results %}
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+        {% set total_users = results.summary.total_users or 0 %}
+
+        <div class="charts-grid">
+            <section class="result-panel">
+                <div class="result-panel-header">
+                    <h4>Assignment Split</h4>
+                    <span class="bar-note">{{ "{:,}".format(total_users) }} users</span>
+                </div>
+                <div class="result-panel-body">
+                    {% for variant in results.variants %}
+                    {% set observed_share = (variant.metrics.total_users / total_users * 100) if total_users > 0 else 0 %}
+                    {% set expected_share = variant.traffic_percentage|default(0) %}
+                    <div class="chart-row">
+                        <div class="chart-label">
+                            <strong>{{ variant.variant_name }}</strong>
+                            <span class="chart-value">{{ "{:.1f}".format(observed_share) }}% observed / {{ "{:.1f}".format(expected_share) }}% expected</span>
+                        </div>
+                        <div class="bar-track">
+                            <span class="bar-fill" style="width: {{ "{:.2f}".format(observed_share) }}%;"></span>
+                            <span class="bar-marker" style="left: calc({{ "{:.2f}".format(expected_share) }}% - 1px);"></span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="result-panel">
+                <div class="result-panel-header">
+                    <h4>Conversion Rate</h4>
+                    <span class="bar-note">{{ "{:,}".format(results.summary.total_conversions) }} conversions</span>
+                </div>
+                <div class="result-panel-body">
+                    {% for variant in results.variants %}
+                    {% set conversion_percent = variant.metrics.conversion_rate * 100 %}
+                    <div class="chart-row">
+                        <div class="chart-label">
+                            <strong>{{ variant.variant_name }}</strong>
+                            <span class="chart-value">{{ "{:.2%}".format(variant.metrics.conversion_rate) }}</span>
+                        </div>
+                        <div class="bar-track">
+                            <span class="bar-fill" style="width: {{ "{:.2f}".format(conversion_percent) }}%;"></span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+        </div>
+
+        <div class="results-grid">
             {% for variant in results.variants %}
-            <div class="card">
-                <div class="card-header">
+            <section class="result-panel">
+                <div class="result-panel-header">
                     <h4>{{ variant.variant_name }}</h4>
+                    <span class="bar-note">{{ "{:.1f}".format(variant.traffic_percentage|default(0)) }}% traffic</span>
                     {% if variant.statistics.statistical_significance %}
                     <span class="status-badge status-success">Significant</span>
                     {% endif %}
                 </div>
-                <div class="card-body">
-                    <p><strong>Users:</strong> {{ "{:,}".format(variant.metrics.total_users) }}</p>
-                    <p><strong>Conversion Rate:</strong> {{ "{:.2%}".format(variant.metrics.conversion_rate) }}</p>
-                    <p><strong>Conversions:</strong> {{ variant.metrics.conversion_count }}</p>
+                <div class="result-panel-body">
+                    <div class="metric-list">
+                        <p><strong>Users:</strong> {{ "{:,}".format(variant.metrics.total_users) }}</p>
+                        <p><strong>Exposed:</strong> {{ "{:,}".format(variant.metrics.exposed_users) }}</p>
+                        <p><strong>Conversion Rate:</strong> {{ "{:.2%}".format(variant.metrics.conversion_rate) }}</p>
+                        <p><strong>Conversions:</strong> {{ variant.metrics.conversion_count }}</p>
+                    </div>
                     {% if variant.metrics.conversion_value > 0 %}
                     <p><strong>Revenue:</strong> ${{ "{:,.2f}".format(variant.metrics.conversion_value) }}</p>
                     <p><strong>AOV:</strong> ${{ "{:,.2f}".format(variant.metrics.average_order_value) }}</p>
@@ -48,19 +213,19 @@
                     <p><strong>P-value:</strong> {{ "{:.4f}".format(variant.statistics.p_value) }}</p>
                     {% endif %}
                 </div>
-            </div>
+            </section>
             {% endfor %}
         </div>
         
         {% if results.summary.recommended_action %}
-        <div class="card">
-            <div class="card-header">
-                <h4>📊 Recommendation</h4>
+        <section class="result-panel">
+            <div class="result-panel-header">
+                <h4>Recommendation</h4>
             </div>
-            <div class="card-body">
+            <div class="result-panel-body">
                 <p>{{ results.summary.recommended_action }}</p>
             </div>
-        </div>
+        </section>
         {% endif %}
         
         {% else %}

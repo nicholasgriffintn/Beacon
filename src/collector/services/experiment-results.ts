@@ -3,6 +3,7 @@ import type { D1Database, R2Bucket, KVNamespace } from "@cloudflare/workers-type
 import type { AnalyticsFullEventData, Experiment, Variant } from "../types";
 import { parseExperimentAssignments } from "../utils/experiments.ts";
 import { parseJsonRecord } from "../utils/json.ts";
+import { getVariantAllocationRanges } from "../utils/variant-allocation.ts";
 
 interface VariantMetrics {
   total_users: number;
@@ -26,6 +27,7 @@ interface VariantStatistics {
 interface VariantResult {
   variant_id: string;
   variant_name: string;
+  traffic_percentage: number;
   metrics: VariantMetrics;
   statistics: VariantStatistics;
 }
@@ -275,7 +277,7 @@ export class ExperimentResultsService {
     }
 
     const variants = await this.db
-      .prepare("SELECT * FROM variants WHERE experiment_id = ? ORDER BY type, name")
+      .prepare("SELECT * FROM variants WHERE experiment_id = ? ORDER BY type, name, id")
       .bind(experimentId)
       .all<VariantRow>();
 
@@ -307,6 +309,13 @@ export class ExperimentResultsService {
   }
 
   private async getVariantResults(experiment: Experiment): Promise<VariantResult[]> {
+    const allocationPercentages = new Map(
+      getVariantAllocationRanges(experiment.variants).map(range => [
+        range.variant.id,
+        range.traffic_percentage,
+      ]),
+    );
+
     return Promise.all(experiment.variants.map(async variant => {
       const assignmentRow = await this.db
         .prepare(`
@@ -358,6 +367,7 @@ export class ExperimentResultsService {
       return {
         variant_id: variant.id,
         variant_name: variant.name,
+        traffic_percentage: allocationPercentages.get(variant.id) || 0,
         metrics: {
           total_users: totalUsers,
           exposed_users: Number(exposureRow?.exposed_users || 0),

@@ -7,6 +7,7 @@ function result(name, totalUsers, convertedUsers, conversionCount = convertedUse
   return {
     variant_id: name.toLowerCase(),
     variant_name: name,
+    traffic_percentage: 50,
     metrics: {
       total_users: totalUsers,
       exposed_users: totalUsers,
